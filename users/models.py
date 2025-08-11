@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinLengthValidator
+from .managers import CustomUserManager
 
 class User(AbstractUser):
     class Role(models.TextChoices):
@@ -18,6 +19,8 @@ class User(AbstractUser):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['nid', 'role']
 
+    objects = CustomUserManager()
+    
     def __str__(self):
         return f"{self.email} - {self.role}"
     
