@@ -1,7 +1,5 @@
 from rest_framework import serializers
 from .models import VaccineCampaign, VaccineSchedule
-from users.serializers import DoctorSerializer
-from datetime import date, timedelta
 
 class VaccineScheduleSerializer(serializers.ModelSerializer):
     class Meta:

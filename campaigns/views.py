@@ -3,13 +3,12 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from .serializers import VaccineCampaignSerializer, VaccineScheduleSerializer
 from users.permissions import IsDoctor,IsPatient
-from .models import VaccineCampaign
+from .models import VaccineCampaign,VaccineSchedule
 from rest_framework.decorators import action
-from bookings.serializers import BookingCreateSerializer,BookingSerializer
-from bookings.models import Booking
+
 from rest_framework.response import Response
 from rest_framework import status
-from django.utils import timezone
+
 from rest_framework.exceptions import PermissionDenied
 from users.models import User
 
@@ -62,3 +61,28 @@ class VaccineCampaignViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save(campaign=campaign)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class VaccineScheduleViewSet(ModelViewSet):
+    serializer_class = VaccineScheduleSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        if self.request.user.role == User.Role.DOCTOR:
+            return VaccineSchedule.objects.filter(campaign__created_by=self.request.user.doctor_profile)
+        return VaccineSchedule.objects.filter(campaign__status='ACTIVE')
+    
+    def perform_create(self, serializer):
+        if self.request.user.role != User.Role.DOCTOR:
+            raise PermissionDenied("Only doctors can create schedules")
+        serializer.save()
+    
+    def perform_update(self, serializer):
+        if self.request.user.role != User.Role.DOCTOR:
+            raise PermissionDenied("Only doctors can update schedules")
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        if self.request.user.role != User.Role.DOCTOR:
+            raise PermissionDenied("Only doctors can delete schedules")
+        instance.delete()

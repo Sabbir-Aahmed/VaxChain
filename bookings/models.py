@@ -1,33 +1,40 @@
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-from campaigns.models import VaccineCampaign
-from django.conf import settings
-from datetime import timedelta
+from users.models import PatientProfile
+from campaigns.models import VaccineCampaign, VaccineSchedule
 
-class Booking(models.Model):
+class VaccineRecord(models.Model):
+    SCHEDULED = 'SCHEDULED'
+    COMPLETED = 'COMPLETED'
+    MISSED = 'MISSED'
+    
     STATUS_CHOICES = [
-        ('PENDING', 'Pending'),
-        ('CONFIRMED', 'Confirmed'),
-        ('COMPLETED', 'Completed'),
-        ('CANCELLED', 'Cancelled'),
+        (SCHEDULED, 'Scheduled'),
+        (COMPLETED, 'Completed'),
+        (MISSED, 'Missed'),
     ]
     
-    patient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, 
-                               limit_choices_to={'role': 'PATIENT'})
+    patient = models.ForeignKey(PatientProfile, on_delete=models.CASCADE, related_name='vaccine_records')
     campaign = models.ForeignKey(VaccineCampaign, on_delete=models.CASCADE)
-    first_dose_date = models.DateField()
-    second_dose_date = models.DateField(blank=True, null=True)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
-    booked_at = models.DateTimeField(auto_now_add=True)
+    first_dose_schedule = models.ForeignKey( VaccineSchedule, on_delete=models.CASCADE, related_name='first_dose_bookings')
+    second_dose_schedule = models.ForeignKey(VaccineSchedule, on_delete=models.CASCADE, related_name='second_dose_bookings',null=True,blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=SCHEDULED)
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.patient.user.get_full_name()} - {self.campaign.name}"
 
+class CampaignReview(models.Model):
+    patient = models.ForeignKey(PatientProfile, on_delete=models.CASCADE, related_name='reviews')
+    campaign = models.ForeignKey(VaccineCampaign, on_delete=models.CASCADE, related_name='reviews')
+    rating = models.PositiveIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
     class Meta:
         unique_together = ('patient', 'campaign')
-        ordering = ['-booked_at']
-
-    def save(self, *args, **kwargs):
-        if not self.second_dose_date:
-            self.second_dose_date = self.first_dose_date + timedelta(days=self.campaign.dose_interval_days)
-        super().save(*args, **kwargs)
-
+    
     def __str__(self):
-        return f"{self.patient.email} - {self.campaign.name}"
+        return f"Review by {self.patient.user.username} for {self.campaign.name}"
