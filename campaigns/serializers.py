@@ -1,9 +1,9 @@
 from rest_framework import serializers
 from .models import VaccineCampaign
-from users.serializers import UserSerializer
+from users.serializers import DoctorSerializer
 
 class VaccinCampaignSerializer(serializers.ModelSerializer):
-    doctor = UserSerializer(read_only = True)
+    doctor = DoctorSerializer(read_only = True)
 
     class Meta: 
         model = VaccineCampaign
