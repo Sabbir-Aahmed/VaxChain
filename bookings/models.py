@@ -4,27 +4,25 @@ from django.conf import settings
 from datetime import timedelta
 
 class Booking(models.Model):
-    class PaymentStatus(models.TextChoices):
-        PENDING = "PENDING", "Pending"
-        PAID = "PAID", "Paid"
-        FAILED = "FAILED", "Failed"
-
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('CONFIRMED', 'Confirmed'),
+        ('COMPLETED', 'Completed'),
+        ('CANCELLED', 'Cancelled'),
+    ]
     
-    patient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, limit_choices_to={"rolse": "PATIENT"})
-    campaign = models.ForeignKey(VaccineCampaign, on_delete=models.CASCADE, related_name="booking")
+    patient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, 
+                               limit_choices_to={'role': 'PATIENT'})
+    campaign = models.ForeignKey(VaccineCampaign, on_delete=models.CASCADE)
     first_dose_date = models.DateField()
-    second_dose_date = models.DateField()
+    second_dose_date = models.DateField(blank=True, null=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
     booked_at = models.DateTimeField(auto_now_add=True)
-    payment_status = models.CharField(max_length=10, choices=PaymentStatus.choices, default=PaymentStatus.PENDING)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('patient' , 'campaign')
-
-
-    def save(self,*args,**kwargs):
-        if not self.second_dose_date:
-            self.second_dose_date = self.first_dose_date + timedelta(days=self.campaign.dose_interval_days)
-        super().save(*args,**kwargs)
+        unique_together = ('patient', 'campaign')
+        ordering = ['-booked_at']
 
     def __str__(self):
-        return f"{self.patient.email} - {self.campaign.name} - ({self.payment_status})"
+        return f"{self.patient.email} - {self.campaign.name}"
