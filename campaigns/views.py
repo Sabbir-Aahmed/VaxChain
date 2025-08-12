@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import IsAuthenticated,AllowAny
+from rest_framework.permissions import IsAuthenticated
 from .serializers import VaccinCampaignSerializer
 from users.permissions import IsDoctor
 from .models import VaccineCampaign
@@ -14,7 +14,7 @@ class CampaignViewSet(ModelViewSet):
             permission_classes = [IsAuthenticated, IsDoctor]
 
         else:
-            permission_classes = [AllowAny]
+            permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]
     
     def perform_create(self, serializer):
