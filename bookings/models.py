@@ -24,5 +24,10 @@ class Booking(models.Model):
         unique_together = ('patient', 'campaign')
         ordering = ['-booked_at']
 
+    def save(self, *args, **kwargs):
+        if not self.second_dose_date:
+            self.second_dose_date = self.first_dose_date + timedelta(days=self.campaign.dose_interval_days)
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.patient.email} - {self.campaign.name}"

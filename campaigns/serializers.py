@@ -11,4 +11,5 @@ class VaccinCampaignSerializer(serializers.ModelSerializer):
             'id','name','description','start_date','end_date','dose_interval_days','created_at','doctor'
         ]
 
-        read_only_fields = ['doctor', 'created_at']
+        read_only_fields = ['doctor', 'created_at','available_dates']
+
