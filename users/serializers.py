@@ -39,7 +39,6 @@ class PatientProfileSerializer(serializers.ModelSerializer):
 
 class DoctorProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
-    profile_picture = serializers.ImageField(required=False)
     
     class Meta:
         model = DoctorProfile
