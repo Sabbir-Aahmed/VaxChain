@@ -47,20 +47,6 @@ class VaccineCampaignViewSet(ModelViewSet):
         if self.request.user.role != User.Role.DOCTOR:
             raise PermissionDenied("Only doctors can delete campaigns")
         instance.delete()
-    
-    @action(detail=True, methods=['post'], serializer_class=VaccineScheduleSerializer)
-    def add_schedule(self, request, pk=None):
-        campaign = self.get_object()
-        if request.user.role != User.Role.DOCTOR:
-            return Response(
-                {"error": "Only doctors can add schedules"}, 
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(campaign=campaign)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class VaccineScheduleViewSet(ModelViewSet):

@@ -18,7 +18,7 @@ class VaccineCampaignSerializer(serializers.ModelSerializer):
             'id', 'name','description','vaccine_type', 'start_date','end_date','schedules', 'dosage_interval_days', 'max_participants',
               'created_by','status','created_at','updated_at'
         ]
-        read_only_fields = ['created_by', 'status']
+        read_only_fields = ['created_by']
     
     def validate(self, data):
         if data['start_date'] > data['end_date']:
