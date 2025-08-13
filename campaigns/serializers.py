@@ -5,7 +5,7 @@ class VaccineScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = VaccineSchedule
         fields = [
-            'id', 'campaign', 'date', 'available_slots', 'start_time', 'end_time', 'created_at','updated_at'
+            'id', 'campaign', 'date', 'available_slots', 'start_time', 'end_time'
         ]
 
 class VaccineCampaignSerializer(serializers.ModelSerializer):
