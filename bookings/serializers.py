@@ -71,16 +71,39 @@ class VaccineRecordCreateSerializer(serializers.ModelSerializer):
 
         return attrs
 
+
 class CampaignReviewSerializer(serializers.ModelSerializer):
-    patient = serializers.StringRelatedField(read_only=True)
+    patient_name = serializers.SerializerMethodField(read_only=True)
+    campaign_name = serializers.SerializerMethodField(read_only=True)
     
+    campaign = serializers.PrimaryKeyRelatedField(
+        queryset=VaccineCampaign.objects.all(),
+        write_only=True
+    )
+
     class Meta:
         model = CampaignReview
-        fields = '__all__'
-        read_only_fields = ['patient']
-    
+        fields = [
+            'id', 'patient_name', 'campaign_name', 'campaign',
+            'rating', 'comment', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['patient_name', 'campaign_name', 'created_at', 'updated_at']
+
+    def get_patient_name(self, obj):
+        return obj.patient.get_full_name()
+
+    def get_campaign_name(self, obj):
+        return obj.campaign.name
+
     def validate(self, data):
-        patient = self.context['request'].user.patient_profile
-        if not VaccineRecord.objects.filter(patient=patient, campaign=data['campaign']).exists():
-            raise serializers.ValidationError("You must book this vaccine to review it")
+        user = self.context['request'].user
+        campaign = data.get('campaign')
+
+        if not VaccineRecord.objects.filter(patient=user, campaign=campaign).exists():
+            raise serializers.ValidationError("You must book this vaccine to review it.")
+
         return data
+
+    def create(self, validated_data):
+        validated_data['patient'] = self.context['request'].user
+        return super().create(validated_data)

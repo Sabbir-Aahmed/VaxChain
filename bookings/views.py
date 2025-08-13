@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from datetime import timedelta
 from .models import VaccineRecord, CampaignReview
 from .serializers import VaccineRecordSerializer,CampaignReviewSerializer, VaccineRecordCreateSerializer
-from users.permissions import IsPatient,IsDoctor
+from users.permissions import IsPatient,IsDoctor, IsAuthorOrReadOnly, IsPatientOrReadOnly
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.serializers import ValidationError
 from django.db import transaction
@@ -64,7 +64,7 @@ class VaccineBookingViewSet(ModelViewSet):
                     first_dose_schedule=locked_schedule,
                     status=VaccineRecord.SCHEDULED
                 )
-                
+
                 VaccineSchedule.objects.filter(pk=locked_schedule.pk).update(available_slots=F('available_slots') - 1)
 
                 output_serializer = VaccineRecordCreateSerializer(record, context={'request': request})
@@ -74,21 +74,20 @@ class VaccineBookingViewSet(ModelViewSet):
             return Response({'detail': 'Schedule not found.'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-            
+
 
 class CampaignReviewViewSet(ModelViewSet):
+    queryset = CampaignReview.objects.all()
     serializer_class = CampaignReviewSerializer
-    permission_classes = [IsAuthenticated, IsPatient]
-    
+    permission_classes = [IsPatientOrReadOnly]
+
     def get_queryset(self):
-        if self.request.user.role == User.PATIENT:
-            return CampaignReview.objects.filter(patient=self.request.user.patient_profile)
+        queryset = super().get_queryset().select_related('patient', 'campaign')
+        
         campaign_id = self.request.query_params.get('campaign_id')
         if campaign_id:
-            return CampaignReview.objects.filter(campaign_id=campaign_id)
-        return CampaignReview.objects.none()
-    
+            queryset = queryset.filter(campaign_id=campaign_id)
+        return queryset
+
     def perform_create(self, serializer):
-        if self.request.user.role != User.PATIENT:
-            raise PermissionDenied("Only patients can leave reviews")
-        serializer.save(patient=self.request.user.patient_profile)
+        serializer.save(patient=self.request.user)
