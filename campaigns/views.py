@@ -4,15 +4,14 @@ from rest_framework.permissions import IsAuthenticated
 from .serializers import VaccineCampaignSerializer, VaccineScheduleSerializer
 from users.permissions import IsDoctor,IsPatient
 from .models import VaccineCampaign,VaccineSchedule
-from django.db.models import Prefetch, Count
 from rest_framework.exceptions import PermissionDenied
 from users.models import User
 from rest_framework.decorators import action
-
+from drf_yasg.utils import swagger_auto_schema
 
 class VaccineCampaignViewSet(ModelViewSet):
     queryset = VaccineCampaign.objects.select_related('created_by').prefetch_related(
-        Prefetch('schedules', queryset=VaccineSchedule.objects.order_by('date', 'start_time'))
+        'schedules',
     )
     serializer_class = VaccineCampaignSerializer
     permission_classes = [IsAuthenticated]
@@ -29,7 +28,7 @@ class VaccineCampaignViewSet(ModelViewSet):
         if user.role == User.Role.DOCTOR:
             return qs.filter(created_by=user)
         elif user.role == User.Role.PATIENT:
-            return qs.filter(status=VaccineCampaign.ACTIVE)
+            return qs
         return qs.none()
 
     def perform_create(self, serializer):
@@ -47,7 +46,58 @@ class VaccineCampaignViewSet(ModelViewSet):
             raise PermissionDenied("Only doctors can delete campaigns")
         instance.delete()
 
-    
+    @swagger_auto_schema(
+        operation_summary="List Vaccine Campaigns",
+        operation_description="Retrieve a list of all vaccine campaigns available to the user",
+        responses={200: VaccineCampaignSerializer(many=True)}
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Retrieve a Vaccine Campaign",
+        operation_description="Retrieve detailed information about a single vaccine campaign",
+        responses={200: VaccineCampaignSerializer()}
+    )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Create a Vaccine Campaign",
+        operation_description="Create a new vaccine campaign (Doctor only)",
+        request_body=VaccineCampaignSerializer,
+        responses={201: VaccineCampaignSerializer()}
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Update a Vaccine Campaign",
+        operation_description="Update a vaccine campaign (Doctor only)",
+        request_body=VaccineCampaignSerializer,
+        responses={200: VaccineCampaignSerializer()}
+    )
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Partial Update a Vaccine Campaign",
+        operation_description="Partially update a vaccine campaign (Doctor only)",
+        request_body=VaccineCampaignSerializer,
+        responses={200: VaccineCampaignSerializer()}
+    )
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Delete a Vaccine Campaign",
+        operation_description="Delete a vaccine campaign (Doctor only)",
+        responses={204: 'No Content'}
+    )
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
+
 class VaccineScheduleViewSet(ModelViewSet):
     queryset = VaccineSchedule.objects.select_related('campaign', 'campaign__created_by')
     serializer_class = VaccineScheduleSerializer
@@ -75,3 +125,54 @@ class VaccineScheduleViewSet(ModelViewSet):
         if self.request.user.role != User.Role.DOCTOR:
             raise PermissionDenied("Only doctors can delete schedules")
         instance.delete()
+
+    @swagger_auto_schema(
+        operation_summary="List Vaccine Schedules",
+        operation_description="Retrieve a list of vaccine schedules available to the user",
+        responses={200: VaccineScheduleSerializer(many=True)}
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Retrieve a Vaccine Schedule",
+        operation_description="Retrieve detailed information about a single vaccine schedule",
+        responses={200: VaccineScheduleSerializer()}
+    )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Create a Vaccine Schedule",
+        operation_description="Create a new vaccine schedule (Doctor only)",
+        request_body=VaccineScheduleSerializer,
+        responses={201: VaccineScheduleSerializer()}
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Update a Vaccine Schedule",
+        operation_description="Update a vaccine schedule (Doctor only)",
+        request_body=VaccineScheduleSerializer,
+        responses={200: VaccineScheduleSerializer()}
+    )
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Partial Update a Vaccine Schedule",
+        operation_description="Partially update a vaccine schedule (Doctor only)",
+        request_body=VaccineScheduleSerializer,
+        responses={200: VaccineScheduleSerializer()}
+    )
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Delete a Vaccine Schedule",
+        operation_description="Delete a vaccine schedule (Doctor only)",
+        responses={204: 'No Content'}
+    )
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)

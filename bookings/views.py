@@ -1,22 +1,15 @@
 from rest_framework import status
-from django.db import models
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from datetime import timedelta
 from .models import VaccineRecord, CampaignReview
 from .serializers import VaccineRecordSerializer,CampaignReviewSerializer, VaccineRecordCreateSerializer
-from users.permissions import IsPatient,IsDoctor, IsAuthorOrReadOnly, IsPatientOrReadOnly
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.serializers import ValidationError
+from users.permissions import IsPatient,IsDoctor, IsPatientOrReadOnly
 from django.db import transaction
-from users.models import User
-from campaigns.models import VaccineCampaign,VaccineSchedule
-from campaigns.serializers import VaccineCampaignSerializer,VaccineScheduleSerializer
+from campaigns.models import VaccineSchedule
 from rest_framework.decorators import action
-from django.utils import timezone
-from django.db.models import Prefetch,F
-
+from django.db.models import F
+from drf_yasg.utils import swagger_auto_schema
 
 class VaccineBookingViewSet(ModelViewSet):
     queryset = VaccineRecord.objects.select_related(
@@ -42,6 +35,12 @@ class VaccineBookingViewSet(ModelViewSet):
             query_set=query_set.filter(patient=user)
         return query_set
 
+    @swagger_auto_schema(
+        operation_summary="Create a Vaccine Booking",
+        operation_description="Book a vaccine slot for the first dose. Automatically decrements available slots.",
+        request_body=VaccineRecordCreateSerializer,
+        responses={201: VaccineRecordCreateSerializer(), 400: 'Bad Request', 404: 'Not Found'}
+    )
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -76,6 +75,37 @@ class VaccineBookingViewSet(ModelViewSet):
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+    @swagger_auto_schema(
+    operation_summary="List Vaccine Bookings",
+    operation_description="Retrieve a list of vaccine bookings for the logged-in user or for doctors",
+    responses={200: VaccineRecordSerializer(many=True)}
+    )
+
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+
+    
+    @swagger_auto_schema(
+        operation_summary="Retrieve a Vaccine Booking",
+        operation_description="Retrieve details of a single vaccine booking",
+        responses={200: VaccineRecordSerializer()}
+    )
+
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    
+    @swagger_auto_schema(
+            operation_summary="Delete a Vaccine Booking",
+            operation_description="Cancel a vaccine booking (Patient only)",
+            responses={204: 'No Content', 403: 'Permission Denied'}
+        )
+    
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+    
+
 class CampaignReviewViewSet(ModelViewSet):
     queryset = CampaignReview.objects.all()
     serializer_class = CampaignReviewSerializer
@@ -91,3 +121,56 @@ class CampaignReviewViewSet(ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(patient=self.request.user)
+
+    @swagger_auto_schema(
+        operation_summary="List Campaign Reviews",
+        operation_description="Retrieve campaign reviews, optionally filtered by campaign_id",
+        responses={200: CampaignReviewSerializer(many=True)}
+    )
+
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Retrieve a Campaign Review",
+        operation_description="Retrieve details of a single campaign review",
+        responses={200: CampaignReviewSerializer()}
+    )
+
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Create a Campaign Review",
+        operation_description="Submit a review for a campaign (Patient only)",
+        request_body=CampaignReviewSerializer,
+        responses={201: CampaignReviewSerializer(), 400: 'Bad Request'}
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Update a Campaign Review",
+        operation_description="Update an existing campaign review",
+        request_body=CampaignReviewSerializer,
+        responses={200: CampaignReviewSerializer()}
+    )
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Partial Update a Campaign Review",
+        operation_description="Partially update an existing campaign review",
+        request_body=CampaignReviewSerializer,
+        responses={200: CampaignReviewSerializer()}
+    )
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Delete a Campaign Review",
+        operation_description="Delete a campaign review",
+        responses={204: 'No Content', 403: 'Permission Denied'}
+    )
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)

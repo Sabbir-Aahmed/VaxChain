@@ -11,6 +11,7 @@ class UserCreateSerializer(BaseUserCreateSerializer):
 
 class UserSerializer(BaseUserSerializer):
     class Meta(BaseUserSerializer.Meta):
+        ref_name = 'CustomUser'
         model = User
         fields =[ 
             'id', 'email', 'nid', 'role', 'first_name', 'last_name', 'contact_number', 'profile_image'
@@ -39,7 +40,6 @@ class PatientProfileSerializer(serializers.ModelSerializer):
 
 class DoctorProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
-    
     class Meta:
         model = DoctorProfile
         fields = [

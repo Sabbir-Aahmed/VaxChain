@@ -1,0 +1,117 @@
+[
+  {
+    "model": "campaigns.vaccinecampaign",
+    "pk": 1,
+    "fields": {
+      "name": "Polio Vaccination Drive",
+      "description": "Campaign to vaccinate children against polio.",
+      "vaccine_type": "Polio",
+      "start_date": "2025-08-20",
+      "end_date": "2025-09-10",
+      "dosage_interval_days": 28,
+      "max_participants": 200,
+      "created_by": 1,
+      "status": "ACTIVE",
+      "created_at": "2025-08-01T10:00:00Z",
+      "updated_at": "2025-08-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "campaigns.vaccinecampaign",
+    "pk": 2,
+    "fields": {
+      "name": "COVID-19 Booster",
+      "description": "Booster dose campaign for COVID-19.",
+      "vaccine_type": "COVID-19",
+      "start_date": "2025-09-01",
+      "end_date": "2025-09-30",
+      "dosage_interval_days": 90,
+      "max_participants": 300,
+      "created_by": 1,
+      "status": "UPCOMING",
+      "created_at": "2025-08-02T10:00:00Z",
+      "updated_at": "2025-08-02T10:00:00Z"
+    }
+  },
+  {
+    "model": "campaigns.vaccinecampaign",
+    "pk": 3,
+    "fields": {
+      "name": "Flu Shot 2025",
+      "description": "Annual flu vaccination campaign.",
+      "vaccine_type": "Influenza",
+      "start_date": "2025-10-01",
+      "end_date": "2025-10-20",
+      "dosage_interval_days": 0,
+      "max_participants": 150,
+      "created_by": 1,
+      "status": "UPCOMING",
+      "created_at": "2025-08-03T10:00:00Z",
+      "updated_at": "2025-08-03T10:00:00Z"
+    }
+  },
+  {
+    "model": "campaigns.vaccinecampaign",
+    "pk": 4,
+    "fields": {
+      "name": "Hepatitis B Immunization",
+      "description": "Campaign to immunize against Hepatitis B.",
+      "vaccine_type": "Hepatitis B",
+      "start_date": "2025-08-15",
+      "end_date": "2025-09-15",
+      "dosage_interval_days": 30,
+      "max_participants": 250,
+      "created_by": 1,
+      "status": "ACTIVE",
+      "created_at": "2025-08-04T10:00:00Z",
+      "updated_at": "2025-08-04T10:00:00Z"
+    }
+  },
+  {
+    "model": "campaigns.vaccinecampaign",
+    "pk": 5,
+    "fields": {
+      "name": "Measles-Rubella Campaign",
+      "description": "MR vaccine drive for children.",
+      "vaccine_type": "Measles-Rubella",
+      "start_date": "2025-09-10",
+      "end_date": "2025-09-25",
+      "dosage_interval_days": 28,
+      "max_participants": 180,
+      "created_by": 1,
+      "status": "UPCOMING",
+      "created_at": "2025-08-05T10:00:00Z",
+      "updated_at": "2025-08-05T10:00:00Z"
+    }
+  },
+
+
+  { "model": "campaigns.vaccineschedule", "pk": 1, "fields": { "campaign": 1, "date": "2025-08-20", "available_slots": 50, "start_time": "09:00:00", "end_time": "12:00:00", "created_at": "2025-08-01T10:00:00Z", "updated_at": "2025-08-01T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 2, "fields": { "campaign": 1, "date": "2025-08-22", "available_slots": 50, "start_time": "13:00:00", "end_time": "16:00:00", "created_at": "2025-08-01T10:00:00Z", "updated_at": "2025-08-01T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 3, "fields": { "campaign": 1, "date": "2025-08-25", "available_slots": 50, "start_time": "09:00:00", "end_time": "12:00:00", "created_at": "2025-08-01T10:00:00Z", "updated_at": "2025-08-01T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 4, "fields": { "campaign": 1, "date": "2025-08-28", "available_slots": 50, "start_time": "13:00:00", "end_time": "16:00:00", "created_at": "2025-08-01T10:00:00Z", "updated_at": "2025-08-01T10:00:00Z" } },
+
+  
+  { "model": "campaigns.vaccineschedule", "pk": 5, "fields": { "campaign": 2, "date": "2025-09-01", "available_slots": 75, "start_time": "09:00:00", "end_time": "12:00:00", "created_at": "2025-08-02T10:00:00Z", "updated_at": "2025-08-02T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 6, "fields": { "campaign": 2, "date": "2025-09-05", "available_slots": 75, "start_time": "13:00:00", "end_time": "16:00:00", "created_at": "2025-08-02T10:00:00Z", "updated_at": "2025-08-02T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 7, "fields": { "campaign": 2, "date": "2025-09-10", "available_slots": 75, "start_time": "09:00:00", "end_time": "12:00:00", "created_at": "2025-08-02T10:00:00Z", "updated_at": "2025-08-02T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 8, "fields": { "campaign": 2, "date": "2025-09-15", "available_slots": 75, "start_time": "13:00:00", "end_time": "16:00:00", "created_at": "2025-08-02T10:00:00Z", "updated_at": "2025-08-02T10:00:00Z" } },
+
+
+  { "model": "campaigns.vaccineschedule", "pk": 9, "fields": { "campaign": 3, "date": "2025-10-01", "available_slots": 40, "start_time": "09:00:00", "end_time": "12:00:00", "created_at": "2025-08-03T10:00:00Z", "updated_at": "2025-08-03T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 10, "fields": { "campaign": 3, "date": "2025-10-05", "available_slots": 40, "start_time": "13:00:00", "end_time": "16:00:00", "created_at": "2025-08-03T10:00:00Z", "updated_at": "2025-08-03T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 11, "fields": { "campaign": 3, "date": "2025-10-10", "available_slots": 40, "start_time": "09:00:00", "end_time": "12:00:00", "created_at": "2025-08-03T10:00:00Z", "updated_at": "2025-08-03T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 12, "fields": { "campaign": 3, "date": "2025-10-15", "available_slots": 40, "start_time": "13:00:00", "end_time": "16:00:00", "created_at": "2025-08-03T10:00:00Z", "updated_at": "2025-08-03T10:00:00Z" } },
+
+
+  { "model": "campaigns.vaccineschedule", "pk": 13, "fields": { "campaign": 4, "date": "2025-08-15", "available_slots": 60, "start_time": "09:00:00", "end_time": "12:00:00", "created_at": "2025-08-04T10:00:00Z", "updated_at": "2025-08-04T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 14, "fields": { "campaign": 4, "date": "2025-08-20", "available_slots": 60, "start_time": "13:00:00", "end_time": "16:00:00", "created_at": "2025-08-04T10:00:00Z", "updated_at": "2025-08-04T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 15, "fields": { "campaign": 4, "date": "2025-08-25", "available_slots": 60, "start_time": "09:00:00", "end_time": "12:00:00", "created_at": "2025-08-04T10:00:00Z", "updated_at": "2025-08-04T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 16, "fields": { "campaign": 4, "date": "2025-08-30", "available_slots": 60, "start_time": "13:00:00", "end_time": "16:00:00", "created_at": "2025-08-04T10:00:00Z", "updated_at": "2025-08-04T10:00:00Z" } },
+
+  
+  { "model": "campaigns.vaccineschedule", "pk": 17, "fields": { "campaign": 5, "date": "2025-09-10", "available_slots": 45, "start_time": "09:00:00", "end_time": "12:00:00", "created_at": "2025-08-05T10:00:00Z", "updated_at": "2025-08-05T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 18, "fields": { "campaign": 5, "date": "2025-09-12", "available_slots": 45, "start_time": "13:00:00", "end_time": "16:00:00", "created_at": "2025-08-05T10:00:00Z", "updated_at": "2025-08-05T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 19, "fields": { "campaign": 5, "date": "2025-09-15", "available_slots": 45, "start_time": "09:00:00", "end_time": "12:00:00", "created_at": "2025-08-05T10:00:00Z", "updated_at": "2025-08-05T10:00:00Z" } },
+  { "model": "campaigns.vaccineschedule", "pk": 20, "fields": { "campaign": 5, "date": "2025-09-18", "available_slots": 45, "start_time": "13:00:00", "end_time": "16:00:00", "created_at": "2025-08-05T10:00:00Z", "updated_at": "2025-08-05T10:00:00Z" } }
+]
