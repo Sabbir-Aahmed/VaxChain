@@ -1,7 +1,7 @@
 from pathlib import Path
 from datetime import timedelta
 from decouple import config
-# import cloudinary
+import cloudinary
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -68,7 +68,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'vax_chain.wsgi.application'
+WSGI_APPLICATION = 'vax_chain.wsgi.app'
 
 INTERNAL_IPS = [
     # ...
@@ -128,6 +128,16 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+
+
+# Configuration  for cloudinary storage    
+cloudinary.config( 
+    cloud_name = config('cloud_name'), 
+    api_key = config('api_key'), 
+    api_secret = config('api_secret'),
+    secure=True
+)
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

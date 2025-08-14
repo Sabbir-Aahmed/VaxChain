@@ -3,6 +3,7 @@ from users.models import User,PatientProfile,DoctorProfile
 from rest_framework import serializers
 
 class UserCreateSerializer(BaseUserCreateSerializer):
+    profile_image = serializers.ImageField(required=False)
     class Meta(BaseUserCreateSerializer.Meta):
         model = User
         fields = [
