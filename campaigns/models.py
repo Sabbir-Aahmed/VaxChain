@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from cloudinary.models import CloudinaryField
 
 class VaccineCampaign(models.Model):
     ACTIVE = 'ACTIVE'
@@ -14,6 +15,7 @@ class VaccineCampaign(models.Model):
     
     name = models.CharField(max_length=100)
     description = models.TextField()
+    campaign_image = CloudinaryField( blank=True, default='vaxCamp_tqt2sl')
     vaccine_type = models.CharField(max_length=100)
     start_date = models.DateField()
     end_date = models.DateField()

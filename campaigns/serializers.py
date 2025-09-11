@@ -11,11 +11,12 @@ class VaccineScheduleSerializer(serializers.ModelSerializer):
 class VaccineCampaignSerializer(serializers.ModelSerializer):
     schedules = VaccineScheduleSerializer(many=True, read_only=True)
     created_by = serializers.StringRelatedField()
-    
+    campaign_image = serializers.ImageField(required=False)
+
     class Meta:
         model = VaccineCampaign
         fields = [
-            'id', 'name','description','vaccine_type', 'start_date','end_date','schedules', 'dosage_interval_days', 'max_participants',
+            'id', 'name','campaign_image','description','vaccine_type', 'start_date','end_date','schedules', 'dosage_interval_days', 'max_participants',
               'created_by','status','created_at','updated_at'
         ]
         read_only_fields = ['created_by']
