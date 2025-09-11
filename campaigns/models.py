@@ -17,6 +17,7 @@ class VaccineCampaign(models.Model):
     description = models.TextField()
     campaign_image = CloudinaryField( blank=True, default='vaxCamp_tqt2sl')
     vaccine_type = models.CharField(max_length=100)
+    location = models.CharField(max_length=255, blank=True, null=True)
     start_date = models.DateField()
     end_date = models.DateField()
     dosage_interval_days = models.PositiveIntegerField(default=28)

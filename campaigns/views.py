@@ -8,6 +8,7 @@ from rest_framework.exceptions import PermissionDenied
 from users.models import User
 from rest_framework.decorators import action
 from drf_yasg.utils import swagger_auto_schema
+from rest_framework.filters import SearchFilter
 
 class VaccineCampaignViewSet(ModelViewSet):
     queryset = VaccineCampaign.objects.select_related('created_by').prefetch_related(
@@ -15,6 +16,8 @@ class VaccineCampaignViewSet(ModelViewSet):
     )
     serializer_class = VaccineCampaignSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [SearchFilter]
+    search_fields = ['name', 'description', 'location','vaccine_type']
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'add_schedule']:
