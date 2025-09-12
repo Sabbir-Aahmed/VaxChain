@@ -25,12 +25,15 @@ class VaccineCampaignViewSet(ModelViewSet):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        user = self.request.user
+        if getattr(self, 'swagger_fake_view', False):
+            return self.queryset.none()
 
-        if user.role == User.Role.DOCTOR:
+        user = self.request.user
+        qs = super().get_queryset()
+
+        if getattr(user, 'role', None) == User.Role.DOCTOR:
             return qs.filter(created_by=user)
-        elif user.role == User.Role.PATIENT:
+        elif getattr(user, 'role', None) == User.Role.PATIENT:
             return qs
         return qs.none()
 
@@ -107,10 +110,13 @@ class VaccineScheduleViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return self.queryset.none()
+
         user = self.request.user
         qs = super().get_queryset()
 
-        if user.role == User.Role.DOCTOR:
+        if getattr(user, 'role', None) == User.Role.DOCTOR:
             return qs.filter(campaign__created_by=user)
         return qs.filter(campaign__status=VaccineCampaign.ACTIVE)
 

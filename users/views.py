@@ -12,6 +12,8 @@ class PatientProfileViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, IsPatient]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return PatientProfile.objects.none()
         return PatientProfile.objects.filter(user=self.request.user)
 
     def get_object(self):
@@ -76,6 +78,8 @@ class DoctorProfileViewSet(ModelViewSet):
     permission_classes = [IsAuthenticated, IsDoctor]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return DoctorProfile.objects.none()
         return DoctorProfile.objects.filter(user=self.request.user)
 
     def get_object(self):

@@ -29,6 +29,7 @@ class VaccineBookingViewSet(ModelViewSet):
         return VaccineRecordSerializer
 
     def get_queryset(self):
+        
         user = self.request.user
         query_set = self.queryset
         if getattr(user, 'role', None) == 'PATIENT':

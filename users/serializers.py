@@ -36,7 +36,7 @@ class PatientProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatientProfile
         fields = [
-            'id','user','blood_type','allergies','medical_conditions','created_at','updated_at'
+            'id','user','blood_type','allergies','medical_conditions'
         ]
 
 class DoctorProfileSerializer(serializers.ModelSerializer):
@@ -44,5 +44,5 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = DoctorProfile
         fields = [
-            'id','user','specialization','license_number','hospital','bio','created_at','updated_at'
+            'id','user','specialization','license_number','hospital','bio'
         ]

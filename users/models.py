@@ -14,6 +14,7 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     nid = models.CharField(max_length=20, unique=True, validators=[MinLengthValidator(10)])
     role = models.CharField(max_length=10, choices=Role.choices)
+    address = models.CharField(max_length=255, blank=True, null=True)
     contact_number = models.CharField(max_length=15, blank=True, null=True)
     address = models.CharField(max_length=255, blank=True, null=True)
     profile_image = CloudinaryField( blank=True, default='default_yfddo9')
