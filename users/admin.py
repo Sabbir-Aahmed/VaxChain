@@ -25,4 +25,6 @@ class CustomUserAdmin(UserAdmin):
     search_fields = ('email',)
     ordering = ('email',)
 
-admin.site.register(User, CustomUserAdmin, PatientProfile, DoctorProfile)
+admin.site.register(User, CustomUserAdmin)
+admin.site.register(PatientProfile)
+admin.site.register(DoctorProfile)

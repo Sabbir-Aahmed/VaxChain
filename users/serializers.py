@@ -7,7 +7,7 @@ class UserCreateSerializer(BaseUserCreateSerializer):
     class Meta(BaseUserCreateSerializer.Meta):
         model = User
         fields = [
-            'id', 'email', 'nid', 'role', 'password', 'first_name', 'last_name', 'contact_number','profile_image'
+            'id', 'email', 'nid', 'role', 'password', 'first_name', 'last_name','address', 'contact_number','profile_image'
         ]
 
 class UserSerializer(BaseUserSerializer):
@@ -15,7 +15,7 @@ class UserSerializer(BaseUserSerializer):
         ref_name = 'CustomUser'
         model = User
         fields =[ 
-            'id', 'email', 'nid', 'role', 'first_name', 'last_name', 'contact_number', 'profile_image'
+            'id', 'email', 'nid', 'role', 'first_name', 'last_name','address', 'contact_number', 'profile_image'
         ]
         read_only_fields = ['nid', 'role']
 
