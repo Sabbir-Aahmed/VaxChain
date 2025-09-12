@@ -9,6 +9,9 @@ from users.models import User
 from rest_framework.decorators import action
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.filters import SearchFilter
+from django_filters.rest_framework import DjangoFilterBackend
+from campaigns.pagination import DefaultPagination
+
 
 class VaccineCampaignViewSet(ModelViewSet):
     queryset = VaccineCampaign.objects.select_related('created_by').prefetch_related(
@@ -16,7 +19,9 @@ class VaccineCampaignViewSet(ModelViewSet):
     )
     serializer_class = VaccineCampaignSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [SearchFilter]
+    filter_backends = [DjangoFilterBackend,SearchFilter]
+    filterset_fields = ['status']
+    pagination_class = DefaultPagination
     search_fields = ['name', 'description', 'location','vaccine_type']
 
     def get_permissions(self):
