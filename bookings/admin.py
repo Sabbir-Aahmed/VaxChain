@@ -1,3 +1,5 @@
 from django.contrib import admin
+from .models import VaccineRecord, CampaignReview
 
-# Register your models here.
+admin.site.register(VaccineRecord)
+admin.site.register(CampaignReview)
