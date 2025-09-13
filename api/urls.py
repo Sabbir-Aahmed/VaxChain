@@ -1,7 +1,7 @@
 from django.urls import path,include
 from rest_framework_nested import routers
 from campaigns.views import VaccineCampaignViewSet,VaccineScheduleViewSet
-from bookings.views import VaccineBookingViewSet,CampaignReviewViewSet
+from bookings.views import VaccineBookingViewSet,CampaignReviewViewSet, CampaignBookingSchedulesView
 from users.views import PatientProfileViewSet, DoctorProfileViewSet
 
 
@@ -14,14 +14,12 @@ router.register('reviews', CampaignReviewViewSet, basename='reviews')
 
 campaign_router = routers.NestedDefaultRouter(router, 'campaigns', lookup='campaigns')
 campaign_router.register('schedule', VaccineScheduleViewSet, basename='schedule')
+campaign_router.register('book', CampaignBookingSchedulesView, basename='campaign-book')
 
-book_router = routers.NestedSimpleRouter(router, 'campaigns', lookup='campaigns')
-book_router.register('book', VaccineBookingViewSet, basename='campaign-book')
 
 urlpatterns = [
     path('', include(router.urls)),
     path('', include(campaign_router.urls)),
-    path('', include(book_router.urls)),
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),
     

@@ -2,7 +2,6 @@ from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.exceptions import MethodNotAllowed
 from .models import VaccineRecord, CampaignReview
 from .serializers import VaccineRecordSerializer, CampaignReviewSerializer, VaccineRecordCreateSerializer
 from users.permissions import IsPatient, IsDoctor, IsPatientOrReadOnly
@@ -11,21 +10,16 @@ from campaigns.models import VaccineSchedule, VaccineCampaign
 from rest_framework.decorators import action
 from django.db.models import F
 from drf_yasg.utils import swagger_auto_schema
+from django.utils import timezone
+from campaigns.serializers import VaccineScheduleSerializer
 
 class VaccineBookingViewSet(ModelViewSet):
     queryset = VaccineRecord.objects.select_related(
         'patient', 'campaign', 'first_dose_schedule', 'first_dose_schedule__campaign',
         'second_dose_schedule', 'second_dose_schedule__campaign'
-    ).prefetch_related('campaign__schedules',)
-
-    lookup_field = 'id'
+    ).prefetch_related('campaign__schedules')
 
     def get_permissions(self):
-        # Early block for non-POST on nested route
-        if self.kwargs.get('campaigns_pk') and self.request.method != 'POST':
-            # Permissions check runs before queryset, so raise here
-            raise MethodNotAllowed({'detail': f'{self.request.method} not supported on this nested route. Use POST to book.'})
-        
         if self.action in ['create', 'destroy']:
             return [IsAuthenticated(), IsPatient()]
         elif self.action in ['list', 'retrieve']:
@@ -38,47 +32,31 @@ class VaccineBookingViewSet(ModelViewSet):
         return VaccineRecordSerializer
 
     def get_queryset(self):
-        # Early block for nested GET: Prevent DRF's internal filtering from raising FieldError
-        if self.kwargs.get('campaigns_pk') and self.request.method == 'GET':
-            raise MethodNotAllowed({'detail': 'GET not supported. Use POST to book or /bookings/ to list all.'})
-
         user = self.request.user
         query_set = self.queryset
         if getattr(user, 'role', None) == 'PATIENT':
             query_set = query_set.filter(patient=user)
-
-        campaigns_pk = self.kwargs.get('campaigns_pk')
-        if campaigns_pk:
-            query_set = query_set.filter(campaign_id=campaigns_pk)
         return query_set
 
     @swagger_auto_schema(
         operation_summary="Create a Vaccine Booking",
-        operation_description="Book a vaccine slot for the first dose via a campaign. Automatically decrements available slots. URL: /campaigns/{campaigns_pk}/book/",
+        operation_description="Book a vaccine slot for the first dose. Automatically decrements available slots.",
         request_body=VaccineRecordCreateSerializer,
-        responses={201: VaccineRecordSerializer(), 400: 'Bad Request', 404: 'Not Found'}
+        responses={201: VaccineRecordCreateSerializer(), 400: 'Bad Request', 404: 'Not Found'}
     )
     def create(self, request, *args, **kwargs):
-        campaigns_pk = self.kwargs.get('campaigns_pk')
-        if not campaigns_pk:
-            return Response({'detail': 'Campaign ID required in URL.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            campaign = VaccineCampaign.objects.get(pk=campaigns_pk)
-        except VaccineCampaign.DoesNotExist:
-            return Response({'detail': 'Campaign not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        if campaign.status != VaccineCampaign.ACTIVE:
-            return Response({'detail': 'Campaign is not active for booking.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        serializer = self.get_serializer(data=request.data, context={
-            'request': request,
-            'campaign_id': campaign.id
-        })
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        campaign = serializer.validated_data.get('campaign_id')
         schedule = serializer.validated_data['first_dose_schedule']
         user = request.user
+
+        # Infer campaign from schedule if not provided
+        if not campaign:
+            if schedule.campaign.status != VaccineCampaign.ACTIVE:
+                return Response({'detail': 'Campaign must be active.'}, status=status.HTTP_400_BAD_REQUEST)
+            campaign = schedule.campaign
 
         try:
             with transaction.atomic():
@@ -86,6 +64,8 @@ class VaccineBookingViewSet(ModelViewSet):
 
                 if locked_schedule.available_slots <= 0:
                     return Response({'detail': 'No available slots.'}, status=status.HTTP_400_BAD_REQUEST)
+                if locked_schedule.campaign != campaign:
+                    return Response({'detail': 'Schedule does not belong to the selected campaign.'}, status=status.HTTP_400_BAD_REQUEST)
 
                 record = VaccineRecord.objects.create(
                     patient=user,
@@ -94,9 +74,7 @@ class VaccineBookingViewSet(ModelViewSet):
                     status=VaccineRecord.SCHEDULED
                 )
 
-                VaccineSchedule.objects.filter(pk=locked_schedule.pk).update(
-                    available_slots=F('available_slots') - 1
-                )
+                VaccineSchedule.objects.filter(pk=locked_schedule.pk).update(available_slots=F('available_slots') - 1)
 
                 output_serializer = VaccineRecordSerializer(record, context={'request': request})
                 return Response(output_serializer.data, status=status.HTTP_201_CREATED)
@@ -106,21 +84,12 @@ class VaccineBookingViewSet(ModelViewSet):
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    def get_object(self):
-        # Fixed: Correct MethodNotAllowed signature (dict for detail)
-        if self.kwargs.get('campaigns_pk') and self.action != 'create':
-            raise MethodNotAllowed({'detail': f'{self.action.upper()} not supported on this nested route'})
-        return super().get_object()
-    
     @swagger_auto_schema(
         operation_summary="List Vaccine Bookings",
-        operation_description="Retrieve a list of vaccine bookings for the logged-in user or for doctors (use /bookings/ instead for this nested route)",
+        operation_description="Retrieve a list of vaccine bookings for the logged-in user or for doctors",
         responses={200: VaccineRecordSerializer(many=True)}
     )
     def list(self, request, *args, **kwargs):
-        # Redundant now (blocked earlier), but kept for safety
-        if self.kwargs.get('campaigns_pk'):
-            raise MethodNotAllowed({'detail': 'GET not supported. Use POST to book or /bookings/ to list all.'})
         return super().list(request, *args, **kwargs)
 
     @swagger_auto_schema(
@@ -139,7 +108,6 @@ class VaccineBookingViewSet(ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)
 
-# CampaignReviewViewSet remains unchanged
 class CampaignReviewViewSet(ModelViewSet):
     queryset = CampaignReview.objects.all()
     serializer_class = CampaignReviewSerializer
@@ -147,7 +115,6 @@ class CampaignReviewViewSet(ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset().select_related('patient', 'campaign')
-        
         campaign_id = self.request.query_params.get('campaign_id')
         if campaign_id:
             queryset = queryset.filter(campaign_id=campaign_id)
@@ -194,7 +161,7 @@ class CampaignReviewViewSet(ModelViewSet):
         operation_summary="Partial Update a Campaign Review",
         operation_description="Partially update an existing campaign review",
         request_body=CampaignReviewSerializer,
-        responses={200: VaccineRecordSerializer()}
+        responses={200: CampaignReviewSerializer()}
     )
     def partial_update(self, request, *args, **kwargs):
         return super().partial_update(request, *args, **kwargs)
@@ -206,3 +173,42 @@ class CampaignReviewViewSet(ModelViewSet):
     )
     def destroy(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)
+
+class CampaignBookingSchedulesView(ModelViewSet):
+    """
+    Endpoint to list available first-dose schedules for a specific campaign during booking.
+    Only returns schedules for the given campaign with available slots and future dates.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = VaccineScheduleSerializer
+
+    def get_queryset(self):
+        campaign_id = self.kwargs.get('campaign_pk')  # Extract campaign ID from URL
+        try:
+            campaign = VaccineCampaign.objects.get(
+                id=campaign_id,
+                status=VaccineCampaign.ACTIVE
+            )
+        except VaccineCampaign.DoesNotExist:
+            return VaccineSchedule.objects.none()  # Return empty queryset if campaign invalid
+
+        # Only return schedules for this campaign, with slots > 0, future dates
+        return VaccineSchedule.objects.filter(
+            campaign=campaign,
+            available_slots__gt=0,
+            date__gte=timezone.now().date()
+        ).select_related('campaign').order_by('date', 'start_time')
+
+    @swagger_auto_schema(
+        operation_summary="List Available Schedules for Campaign Booking",
+        operation_description="Retrieve available first-dose schedules for a specific campaign (for booking UI). Only shows active campaigns with available slots and future dates.",
+        responses={200: VaccineScheduleSerializer(many=True), 404: 'Campaign not found or not active'}
+    )
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        if not queryset.exists():
+            return Response(
+                {'detail': 'No available schedules for this campaign or campaign is not active.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        return super().list(request, *args, **kwargs)

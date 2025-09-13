@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import VaccineRecord, CampaignReview
 from campaigns.models import VaccineSchedule, VaccineCampaign
-from campaigns.serializers import VaccineScheduleSerializer,VaccineCampaignSerializer
+
 from django.utils import timezone
 from django.db import transaction
 
@@ -16,8 +16,8 @@ class VaccineRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = VaccineRecord
         fields = [
-            'id','patient_name','campaign_name','campaign_start_date','campaign_end_date','first_dose_schedule',
-            'second_dose_schedule'
+            'id', 'patient_name', 'campaign_name', 'campaign_start_date', 'campaign_end_date',
+            'first_dose_schedule', 'second_dose_schedule'
         ]
 
     def get_first_dose_schedule(self, obj):
@@ -44,7 +44,7 @@ class VaccineRecordCreateSerializer(serializers.ModelSerializer):
     campaign_id = serializers.PrimaryKeyRelatedField(
         queryset=VaccineCampaign.objects.filter(status=VaccineCampaign.ACTIVE),
         write_only=True,
-        required=False
+        required=False  # Optional, can be inferred from schedule
     )
     first_dose_schedule_id = serializers.PrimaryKeyRelatedField(
         queryset=VaccineSchedule.objects.all(),
@@ -54,38 +54,34 @@ class VaccineRecordCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = VaccineRecord
-        fields = ['campaign_id', 'first_dose_schedule_id']  # Added campaign_id
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        campaign_id = self.context.get('campaign_id')
-        if campaign_id:
-            self.fields['first_dose_schedule_id'].queryset = VaccineSchedule.objects.filter(
-                campaign_id=campaign_id,
-                date__gte=timezone.now().date(),
-                available_slots__gt=0
-            )
+        fields = ['campaign_id', 'first_dose_schedule_id']
 
     def validate(self, attrs):
         request = self.context.get('request')
-        # Use context first (nested), fallback to attrs (global)
-        campaign = self.context.get('campaign_id') or attrs.get('campaign_id')
+        campaign = attrs.get('campaign_id')
         schedule = attrs.get('first_dose_schedule')
 
-        if not campaign:
-            raise serializers.ValidationError("Campaign ID must be provided via URL or data.")
+        if not schedule:
+            raise serializers.ValidationError("First dose schedule is required.")
 
         if schedule.date < timezone.now().date():
             raise serializers.ValidationError("Cannot book a date in the past.")
         if schedule.available_slots <= 0:
             raise serializers.ValidationError("No available slots for this schedule.")
-        if schedule.campaign != campaign:
+
+        # If campaign not provided, infer from schedule
+        if not campaign:
+            if schedule.campaign.status != VaccineCampaign.ACTIVE:
+                raise serializers.ValidationError("Schedule's campaign must be active.")
+            attrs['campaign_id'] = schedule.campaign
+            campaign = schedule.campaign
+        elif schedule.campaign != campaign:
             raise serializers.ValidationError("Selected schedule does not belong to the selected campaign.")
+
         if VaccineRecord.objects.filter(patient=request.user, campaign=campaign).exists():
             raise serializers.ValidationError("You already have a booking for this campaign.")
 
         return attrs
-
 
 class CampaignReviewSerializer(serializers.ModelSerializer):
     patient_name = serializers.SerializerMethodField(read_only=True)
