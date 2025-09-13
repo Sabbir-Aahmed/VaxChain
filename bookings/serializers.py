@@ -43,7 +43,8 @@ class VaccineRecordSerializer(serializers.ModelSerializer):
 class VaccineRecordCreateSerializer(serializers.ModelSerializer):
     campaign_id = serializers.PrimaryKeyRelatedField(
         queryset=VaccineCampaign.objects.filter(status=VaccineCampaign.ACTIVE),
-        write_only=True
+        write_only=True,
+        required=False
     )
     first_dose_schedule_id = serializers.PrimaryKeyRelatedField(
         queryset=VaccineSchedule.objects.all(),
@@ -53,12 +54,26 @@ class VaccineRecordCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = VaccineRecord
-        fields = ['campaign_id', 'first_dose_schedule_id']
+        fields = ['campaign_id', 'first_dose_schedule_id']  # Added campaign_id
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        campaign_id = self.context.get('campaign_id')
+        if campaign_id:
+            self.fields['first_dose_schedule_id'].queryset = VaccineSchedule.objects.filter(
+                campaign_id=campaign_id,
+                date__gte=timezone.now().date(),
+                available_slots__gt=0
+            )
 
     def validate(self, attrs):
         request = self.context.get('request')
-        campaign = attrs.get('campaign_id')
+        # Use context first (nested), fallback to attrs (global)
+        campaign = self.context.get('campaign_id') or attrs.get('campaign_id')
         schedule = attrs.get('first_dose_schedule')
+
+        if not campaign:
+            raise serializers.ValidationError("Campaign ID must be provided via URL or data.")
 
         if schedule.date < timezone.now().date():
             raise serializers.ValidationError("Cannot book a date in the past.")

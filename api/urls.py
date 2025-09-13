@@ -12,12 +12,16 @@ router.register('patient/profile', PatientProfileViewSet, basename='patient-prof
 router.register('doctor/profile', DoctorProfileViewSet, basename='doctor-profile')
 router.register('reviews', CampaignReviewViewSet, basename='reviews')
 
-cmapaign_router = routers.NestedDefaultRouter(router, 'campaigns', lookup = 'campaigns')
-cmapaign_router.register('schedule', VaccineScheduleViewSet, basename='schedule')
+campaign_router = routers.NestedDefaultRouter(router, 'campaigns', lookup='campaigns')
+campaign_router.register('schedule', VaccineScheduleViewSet, basename='schedule')
+
+book_router = routers.NestedSimpleRouter(router, 'campaigns', lookup='campaigns')
+book_router.register('book', VaccineBookingViewSet, basename='campaign-book')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('', include(cmapaign_router.urls)),
+    path('', include(campaign_router.urls)),
+    path('', include(book_router.urls)),
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),
     
