@@ -1,7 +1,13 @@
 from django.shortcuts import render
+from rest_framework import status
+from rest_framework.response import Response
+from django.utils import timezone
+from django.db import transaction
+from django.db.models import F
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
-from .serializers import VaccineCampaignSerializer, VaccineScheduleSerializer
+from .serializers import VaccineCampaignSerializer, VaccineScheduleSerializer, CampaignBookingSerializer
 from users.permissions import IsDoctor,IsPatient
 from .models import VaccineCampaign,VaccineSchedule
 from rest_framework.exceptions import PermissionDenied
@@ -11,6 +17,8 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework.filters import SearchFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from campaigns.pagination import DefaultPagination
+from bookings.serializers import VaccineRecordSerializer
+from bookings.models import VaccineRecord
 
 
 class VaccineCampaignViewSet(ModelViewSet):
@@ -108,22 +116,91 @@ class VaccineCampaignViewSet(ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)
 
+    
+    @action(detail=True, methods=['get', 'post'], url_path='booking', serializer_class=CampaignBookingSerializer)
+    def booking(self, request, pk=None):
+        """
+        GET  -> list available schedules for this campaign
+        POST -> create a booking for this campaign
+        """
+        campaign = self.get_object()
+
+        if request.method == 'GET':
+            # list only future schedules with available slots
+            schedules = campaign.schedules.filter(
+                date__gte=timezone.now().date(),
+                available_slots__gt=0
+            ).order_by('date', 'start_time')
+            serializer = VaccineScheduleSerializer(schedules, many=True, context={'request': request})
+            return Response(serializer.data)
+
+        # POST: book
+        if not request.user.is_authenticated:
+            return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if not IsPatient().has_permission(request, self):
+            raise PermissionDenied("Only patients can create a booking.")
+
+        # Use your simplified booking serializer here
+        serializer = CampaignBookingSerializer(
+            data=request.data,
+            context={'request': request, 'campaign': campaign}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        first_schedule = serializer.validated_data['first_dose_schedule']
+
+        try:
+            with transaction.atomic():
+                locked_schedule = first_schedule.__class__.objects.select_for_update().select_related('campaign').get(pk=first_schedule.pk)
+
+                if locked_schedule.available_slots <= 0:
+                    return Response({'detail': 'No available slots.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                record = VaccineRecord.objects.create(
+                    patient=request.user,
+                    campaign=campaign,
+                    first_dose_schedule=locked_schedule,
+                    status=VaccineRecord.SCHEDULED
+                )
+
+                first_schedule.__class__.objects.filter(pk=locked_schedule.pk).update(
+                    available_slots=F('available_slots') - 1
+                )
+
+                out_serializer = VaccineRecordSerializer(record, context={'request': request})
+                return Response(out_serializer.data, status=status.HTTP_201_CREATED)
+
+        except first_schedule.__class__.DoesNotExist:
+            return Response({'detail': 'Schedule not found.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class VaccineScheduleViewSet(ModelViewSet):
     queryset = VaccineSchedule.objects.select_related('campaign', 'campaign__created_by')
     serializer_class = VaccineScheduleSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['date', 'campaign']
+    pagination_class = DefaultPagination
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        campaign_id = self.kwargs.get('campaigns_pk')  # Nested router
+        if campaign_id:
+            try:
+                campaign = VaccineCampaign.objects.get(pk=campaign_id)
+                context['campaign'] = campaign
+            except VaccineCampaign.DoesNotExist:
+                pass
+        return context
 
     def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return self.queryset.none()
-
-        user = self.request.user
         qs = super().get_queryset()
-
-        if getattr(user, 'role', None) == User.Role.DOCTOR:
-            return qs.filter(campaign__created_by=user)
-        return qs.filter(campaign__status=VaccineCampaign.ACTIVE)
+        campaign_id = self.kwargs.get('campaigns_pk')  # Filter by URL campaign
+        if campaign_id:
+            qs = qs.filter(campaign_id=campaign_id)
+        return qs
 
     def perform_create(self, serializer):
         if self.request.user.role != User.Role.DOCTOR:

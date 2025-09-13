@@ -3,110 +3,47 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import VaccineRecord, CampaignReview
-from .serializers import VaccineRecordSerializer, CampaignReviewSerializer, VaccineRecordCreateSerializer
+from .serializers import VaccineRecordSerializer, CampaignReviewSerializer
 from users.permissions import IsPatient, IsDoctor, IsPatientOrReadOnly
-from django.db import transaction
 from campaigns.models import VaccineSchedule, VaccineCampaign
 from rest_framework.decorators import action
 from django.db.models import F
 from drf_yasg.utils import swagger_auto_schema
 from django.utils import timezone
 from campaigns.serializers import VaccineScheduleSerializer
+from rest_framework.viewsets import ReadOnlyModelViewSet
 
-class VaccineBookingViewSet(ModelViewSet):
+
+class VaccineBookingViewSet(ReadOnlyModelViewSet):
+    """
+    Read-only viewset for listing/retrieving VaccineRecords.
+    All booking creation is handled inside VaccineCampaignViewSet (campaigns/{id}/booking/).
+    """
     queryset = VaccineRecord.objects.select_related(
         'patient', 'campaign', 'first_dose_schedule', 'first_dose_schedule__campaign',
         'second_dose_schedule', 'second_dose_schedule__campaign'
     ).prefetch_related('campaign__schedules')
 
+    serializer_class = VaccineRecordSerializer
+    permission_classes = [IsAuthenticated]
+
     def get_permissions(self):
-        if self.action in ['create', 'destroy']:
-            return [IsAuthenticated(), IsPatient()]
-        elif self.action in ['list', 'retrieve']:
+        # Patients see their own bookings; doctors can see all
+        if self.action in ['list', 'retrieve']:
             return [IsAuthenticated(), (IsPatient | IsDoctor)()]
         return super().get_permissions()
 
-    def get_serializer_class(self):
-        if self.action == 'create':
-            return VaccineRecordCreateSerializer
-        return VaccineRecordSerializer
-
     def get_queryset(self):
         user = self.request.user
-        query_set = self.queryset
+        qs = self.queryset
         if getattr(user, 'role', None) == 'PATIENT':
-            query_set = query_set.filter(patient=user)
-        return query_set
-
-    @swagger_auto_schema(
-        operation_summary="Create a Vaccine Booking",
-        operation_description="Book a vaccine slot for the first dose. Automatically decrements available slots.",
-        request_body=VaccineRecordCreateSerializer,
-        responses={201: VaccineRecordCreateSerializer(), 400: 'Bad Request', 404: 'Not Found'}
-    )
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        campaign = serializer.validated_data.get('campaign_id')
-        schedule = serializer.validated_data['first_dose_schedule']
-        user = request.user
-
-        # Infer campaign from schedule if not provided
-        if not campaign:
-            if schedule.campaign.status != VaccineCampaign.ACTIVE:
-                return Response({'detail': 'Campaign must be active.'}, status=status.HTTP_400_BAD_REQUEST)
-            campaign = schedule.campaign
-
-        try:
-            with transaction.atomic():
-                locked_schedule = VaccineSchedule.objects.select_for_update().select_related('campaign').get(pk=schedule.pk)
-
-                if locked_schedule.available_slots <= 0:
-                    return Response({'detail': 'No available slots.'}, status=status.HTTP_400_BAD_REQUEST)
-                if locked_schedule.campaign != campaign:
-                    return Response({'detail': 'Schedule does not belong to the selected campaign.'}, status=status.HTTP_400_BAD_REQUEST)
-
-                record = VaccineRecord.objects.create(
-                    patient=user,
-                    campaign=campaign,
-                    first_dose_schedule=locked_schedule,
-                    status=VaccineRecord.SCHEDULED
-                )
-
-                VaccineSchedule.objects.filter(pk=locked_schedule.pk).update(available_slots=F('available_slots') - 1)
-
-                output_serializer = VaccineRecordSerializer(record, context={'request': request})
-                return Response(output_serializer.data, status=status.HTTP_201_CREATED)
-
-        except VaccineSchedule.DoesNotExist:
-            return Response({'detail': 'Schedule not found.'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-    @swagger_auto_schema(
-        operation_summary="List Vaccine Bookings",
-        operation_description="Retrieve a list of vaccine bookings for the logged-in user or for doctors",
-        responses={200: VaccineRecordSerializer(many=True)}
-    )
-    def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
-
-    @swagger_auto_schema(
-        operation_summary="Retrieve a Vaccine Booking",
-        operation_description="Retrieve details of a single vaccine booking",
-        responses={200: VaccineRecordSerializer()}
-    )
-    def retrieve(self, request, *args, **kwargs):
-        return super().retrieve(request, *args, **kwargs)
-
-    @swagger_auto_schema(
-        operation_summary="Delete a Vaccine Booking",
-        operation_description="Cancel a vaccine booking (Patient only)",
-        responses={204: 'No Content', 403: 'Permission Denied'}
-    )
-    def destroy(self, request, *args, **kwargs):
-        return super().destroy(request, *args, **kwargs)
+            qs = qs.filter(patient=user)
+        return qs
+    @action(detail=True, methods=['delete'], permission_classes=[IsAuthenticated, IsPatient])
+    def delete(self, request, pk=None):
+        record = self.get_object()
+        record.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class CampaignReviewViewSet(ModelViewSet):
     queryset = CampaignReview.objects.all()
