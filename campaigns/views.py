@@ -18,7 +18,7 @@ from rest_framework.filters import SearchFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from campaigns.pagination import DefaultPagination
 from bookings.serializers import VaccineRecordSerializer
-from bookings.models import VaccineRecord
+from bookings.models import VaccineRecord,Payment
 
 
 class VaccineCampaignViewSet(ModelViewSet):
@@ -117,7 +117,7 @@ class VaccineCampaignViewSet(ModelViewSet):
         return super().destroy(request, *args, **kwargs)
 
     
-    @action(detail=True, methods=['get', 'post'], url_path='booking', serializer_class=CampaignBookingSerializer)
+    @action(detail=True, methods=['get', 'post'],permission_classes=[IsAuthenticated], url_path='booking', serializer_class=CampaignBookingSerializer)
     def booking(self, request, pk=None):
         """
         GET  -> list available schedules for this campaign
@@ -168,6 +168,13 @@ class VaccineCampaignViewSet(ModelViewSet):
                     available_slots=F('available_slots') - 1
                 )
 
+                if campaign.is_premium:
+                    Payment.objects.create(
+                        patient=request.user,
+                        record=record,
+                        amount=campaign.premium_price or 0,
+                        payment_status=Payment.PENDING
+            )
                 out_serializer = VaccineRecordSerializer(record, context={'request': request})
                 return Response(out_serializer.data, status=status.HTTP_201_CREATED)
 

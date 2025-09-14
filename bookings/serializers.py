@@ -12,14 +12,17 @@ class VaccineRecordSerializer(serializers.ModelSerializer):
     campaign_end_date = serializers.DateField(source='campaign.end_date', read_only=True)
     first_dose_schedule = serializers.SerializerMethodField()
     second_dose_schedule = serializers.SerializerMethodField()
+    payment_status = serializers.CharField(source='payment.payment_status', read_only=True)
+    amount = serializers.DecimalField(source='payment.amount', read_only=True, max_digits=10, decimal_places=2)
 
     class Meta:
         model = VaccineRecord
         fields = [
             'id', 'patient_name', 'campaign_name', 'campaign_start_date', 'campaign_end_date',
-            'first_dose_schedule', 'second_dose_schedule'
+            'first_dose_schedule', 'second_dose_schedule','payment_status', 'amount'
         ]
-
+        read_only_fields = ['second_dose_schedule', 'payment_status', 'amount', 'created_at']
+        
     def get_first_dose_schedule(self, obj):
         if obj.first_dose_schedule:
             return {
@@ -40,48 +43,7 @@ class VaccineRecordSerializer(serializers.ModelSerializer):
             }
         return None
 
-# class VaccineRecordCreateSerializer(serializers.ModelSerializer):
-#     campaign_id = serializers.PrimaryKeyRelatedField(
-#         queryset=VaccineCampaign.objects.filter(status=VaccineCampaign.ACTIVE),
-#         write_only=True,
-#         required=False  # Optional, can be inferred from schedule
-#     )
-#     first_dose_schedule_id = serializers.PrimaryKeyRelatedField(
-#         queryset=VaccineSchedule.objects.all(),
-#         write_only=True,
-#         source='first_dose_schedule'
-#     )
 
-#     class Meta:
-#         model = VaccineRecord
-#         fields = ['campaign_id', 'first_dose_schedule_id']
-
-#     def validate(self, attrs):
-#         request = self.context.get('request')
-#         campaign = attrs.get('campaign_id')
-#         schedule = attrs.get('first_dose_schedule')
-
-#         if not schedule:
-#             raise serializers.ValidationError("First dose schedule is required.")
-
-#         if schedule.date < timezone.now().date():
-#             raise serializers.ValidationError("Cannot book a date in the past.")
-#         if schedule.available_slots <= 0:
-#             raise serializers.ValidationError("No available slots for this schedule.")
-
-#         # If campaign not provided, infer from schedule
-#         if not campaign:
-#             if schedule.campaign.status != VaccineCampaign.ACTIVE:
-#                 raise serializers.ValidationError("Schedule's campaign must be active.")
-#             attrs['campaign_id'] = schedule.campaign
-#             campaign = schedule.campaign
-#         elif schedule.campaign != campaign:
-#             raise serializers.ValidationError("Selected schedule does not belong to the selected campaign.")
-
-#         if VaccineRecord.objects.filter(patient=request.user, campaign=campaign).exists():
-#             raise serializers.ValidationError("You already have a booking for this campaign.")
-
-#         return attrs
 
 class CampaignReviewSerializer(serializers.ModelSerializer):
     patient_name = serializers.SerializerMethodField(read_only=True)

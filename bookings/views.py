@@ -20,7 +20,7 @@ class VaccineBookingViewSet(ReadOnlyModelViewSet):
     All booking creation is handled inside VaccineCampaignViewSet (campaigns/{id}/booking/).
     """
     queryset = VaccineRecord.objects.select_related(
-        'patient', 'campaign', 'first_dose_schedule', 'first_dose_schedule__campaign',
+        'patient', 'campaign', 'first_dose_schedule', 'first_dose_schedule__campaign','payment',
         'second_dose_schedule', 'second_dose_schedule__campaign'
     ).prefetch_related('campaign__schedules')
 

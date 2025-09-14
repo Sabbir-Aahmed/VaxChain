@@ -15,6 +15,8 @@ class VaccineCampaign(models.Model):
     
     name = models.CharField(max_length=100)
     description = models.TextField()
+    is_premium = models.BooleanField(default=False)
+    premium_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     campaign_image = CloudinaryField( blank=True, default='vaxCamp_tqt2sl')
     vaccine_type = models.CharField(max_length=100)
     location = models.CharField(max_length=255, blank=True, null=True)

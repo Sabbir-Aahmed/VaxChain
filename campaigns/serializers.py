@@ -26,7 +26,7 @@ class VaccineCampaignSerializer(serializers.ModelSerializer):
     class Meta:
         model = VaccineCampaign
         fields = [
-            'id', 'name','campaign_image','description','vaccine_type','location', 'start_date','end_date','schedules', 'dosage_interval_days', 'max_participants',
+            'id', 'name','campaign_image','description','is_premium', 'premium_price','vaccine_type','location', 'start_date','end_date','schedules', 'dosage_interval_days', 'max_participants',
               'created_by','status','created_at','updated_at'
         ]
         read_only_fields = ['created_by']
