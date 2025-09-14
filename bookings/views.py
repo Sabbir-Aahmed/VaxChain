@@ -1,8 +1,9 @@
 from rest_framework import status
+from django.shortcuts import redirect
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .models import VaccineRecord, CampaignReview
+from .models import VaccineRecord, CampaignReview,Payment
 from .serializers import VaccineRecordSerializer, CampaignReviewSerializer
 from users.permissions import IsPatient, IsDoctor, IsPatientOrReadOnly
 from campaigns.models import VaccineSchedule, VaccineCampaign
@@ -12,7 +13,11 @@ from drf_yasg.utils import swagger_auto_schema
 from django.utils import timezone
 from campaigns.serializers import VaccineScheduleSerializer
 from rest_framework.viewsets import ReadOnlyModelViewSet
-
+from rest_framework.decorators import api_view
+from sslcommerz_lib import SSLCOMMERZ 
+from decouple import config
+from django.conf import settings as main_settings
+from rest_framework.views import APIView
 
 class VaccineBookingViewSet(ReadOnlyModelViewSet):
     """
@@ -149,3 +154,86 @@ class CampaignBookingSchedulesView(ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         return super().list(request, *args, **kwargs)
+
+
+@api_view(['POST'])
+def initiate_payment(request):
+    print(request.data)
+    user = request.user
+    record_id = request.data.get("record_id")
+    amount = request.data.get("amount")
+
+    if not record_id or not amount:
+        return Response({"error": "record_id and amount required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        record = VaccineRecord.objects.select_related('campaign').get(id=record_id, patient=user)
+    except VaccineRecord.DoesNotExist:
+        return Response({"error": "Booking not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    payment = Payment.objects.create(
+        patient=user,
+        record=record,
+        amount=amount,
+        status=Payment.PENDING
+    )
+
+    print("user", user)
+    settings = { 'store_id': config('Store_ID'), 'store_pass': config('store_pass'), 'issandbox': True }
+    sslcz = SSLCOMMERZ(settings)
+    post_body = {}
+    post_body['total_amount'] = str(payment.amount)
+    post_body['currency'] = "BDT"
+    post_body['tran_id'] = f"txn_{payment.id}"
+    post_body['success_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/success/"
+    post_body['fail_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/fail/"
+    post_body['cancel_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/cancel/"
+    post_body['emi_option'] = 0
+    post_body['cus_name'] = f"{user.first_name} {user.last_name}"
+    post_body['cus_email'] = user.email
+    post_body['cus_phone'] = user.contact_number
+    post_body['cus_add1'] = user.address
+    post_body['cus_city'] = "Dhaka"
+    post_body['cus_country'] = "Bangladesh"
+    post_body['shipping_method'] = "NO"
+    post_body['multi_card_name'] = ""
+    post_body['num_of_item'] = 1
+    post_body['product_name'] = record.campaign.name
+    post_body['product_category'] = "Vaccine"
+    post_body['product_profile'] = "general"
+
+    response = sslcz.createSession(post_body) # API response
+    if response.get("status") == 'SUCCESS':
+        return Response({"payment_url": response['GatewayPageURL'], "payment_id": payment.id})
+    return Response({"error": "Payment initatiation failed"}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(["POST"])
+def payment_success(request):
+    tran_id = request.data.get("tran_id")
+    if not tran_id or not tran_id.startswith("txn_"):
+        return Response({"error": "Invalid transaction id"}, status=400)
+    payment_id = tran_id.split('_')[1]
+
+    try:
+        payment = Payment.objects.select_related('record').get(id=payment_id)
+    except Payment.DoesNotExist:
+        return Response({"error": "Payment not found"}, status=404)
+
+    payment.status = Payment.SUCCESS
+    payment.payment_reference = request.data.get("bank_tran_id")
+    payment.save()
+
+    return redirect(f"{main_settings.FRONTEND_URL}/campaigns")
+
+@api_view(['POST'])
+def payment_cancel(request):
+    return redirect(f"{main_settings.FRONTEND_URL}/campaigns")
+
+
+@api_view(['POST'])
+def payment_fail(request):
+    tran_id = request.data.get("tran_id")
+    if tran_id and tran_id.startswith("txn_"):
+        payment_id = tran_id.split('_')[1]
+        Payment.objects.filter(id=payment_id).update(status=Payment.FAILED)
+    return redirect(f"{main_settings.FRONTEND_URL}/campaigns")

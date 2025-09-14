@@ -1,7 +1,7 @@
 from django.urls import path,include
 from rest_framework_nested import routers
 from campaigns.views import VaccineCampaignViewSet,VaccineScheduleViewSet
-from bookings.views import VaccineBookingViewSet,CampaignReviewViewSet
+from bookings.views import VaccineBookingViewSet,CampaignReviewViewSet,initiate_payment,payment_success,payment_fail,payment_cancel
 from users.views import PatientProfileViewSet, DoctorProfileViewSet
 
 
@@ -21,6 +21,10 @@ urlpatterns = [
     path('', include(campaign_router.urls)),
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),
+        path('payment/initiate/',initiate_payment, name="initiate_payment" ),
+    path('payment/success/',payment_success, name="payment_success" ),
+    path('payment/fail/',payment_fail, name="payment_fail" ),
+    path('payment/cancel/',payment_cancel, name="payment_cancel" ),
     
 ]
 
