@@ -119,66 +119,68 @@ class VaccineCampaignViewSet(ModelViewSet):
     
     @action(detail=True, methods=['get', 'post'],permission_classes=[IsAuthenticated], url_path='booking', serializer_class=CampaignBookingSerializer)
     def booking(self, request, pk=None):
-        """
-        GET  -> list available schedules for this campaign
-        POST -> create a booking for this campaign
-        """
         campaign = self.get_object()
 
         if request.method == 'GET':
-            # list only future schedules with available slots
             schedules = campaign.schedules.filter(
                 date__gte=timezone.now().date(),
                 available_slots__gt=0
             ).order_by('date', 'start_time')
-            serializer = VaccineScheduleSerializer(schedules, many=True, context={'request': request})
+            serializer = VaccineScheduleSerializer(
+                schedules, many=True, context={'request': request}
+            )
             return Response(serializer.data)
 
-        # POST: book
-        if not request.user.is_authenticated:
-            return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
-
+        # POST → create booking or payment
         if not IsPatient().has_permission(request, self):
             raise PermissionDenied("Only patients can create a booking.")
 
-        # Use your simplified booking serializer here
         serializer = CampaignBookingSerializer(
             data=request.data,
             context={'request': request, 'campaign': campaign}
         )
         serializer.is_valid(raise_exception=True)
-
         first_schedule = serializer.validated_data['first_dose_schedule']
 
         try:
             with transaction.atomic():
-                locked_schedule = first_schedule.__class__.objects.select_for_update().select_related('campaign').get(pk=first_schedule.pk)
+                locked_schedule = VaccineSchedule.objects.select_for_update().get(pk=first_schedule.pk)
 
                 if locked_schedule.available_slots <= 0:
                     return Response({'detail': 'No available slots.'}, status=status.HTTP_400_BAD_REQUEST)
 
-                record = VaccineRecord.objects.create(
-                    patient=request.user,
-                    campaign=campaign,
-                    first_dose_schedule=locked_schedule,
-                    status=VaccineRecord.SCHEDULED
-                )
-
-                first_schedule.__class__.objects.filter(pk=locked_schedule.pk).update(
-                    available_slots=F('available_slots') - 1
-                )
-
-                if campaign.is_premium:
-                    Payment.objects.create(
+                # Non-premium → create booking immediately
+                if not campaign.is_premium:
+                    record = VaccineRecord.objects.create(
                         patient=request.user,
-                        record=record,
-                        amount=campaign.premium_price or 0,
-                        payment_status=Payment.PENDING
-            )
-                out_serializer = VaccineRecordSerializer(record, context={'request': request})
-                return Response(out_serializer.data, status=status.HTTP_201_CREATED)
+                        campaign=campaign,
+                        first_dose_schedule=locked_schedule,
+                        status=VaccineRecord.SCHEDULED
+                    )
+                    locked_schedule.available_slots = F('available_slots') - 1
+                    locked_schedule.save()
+                    out_serializer = VaccineRecordSerializer(record, context={'request': request})
+                    return Response(out_serializer.data, status=status.HTTP_201_CREATED)
 
-        except first_schedule.__class__.DoesNotExist:
+                # Premium → create Payment first (no booking yet)
+                payment = Payment.objects.create(
+                    patient=request.user,
+                    record=None,
+                    amount=campaign.premium_price or 0,
+                    payment_status=Payment.PENDING,
+                    campaign_id=campaign.id,
+                    schedule_id=locked_schedule.id
+                )
+
+                return Response({
+                    "message": "Payment required",
+                    "payment_id": payment.id,
+                    "amount": payment.amount,
+                    "campaign_id": campaign.id,
+                    "schedule_id": locked_schedule.id
+                }, status=status.HTTP_200_OK)
+
+        except VaccineSchedule.DoesNotExist:
             return Response({'detail': 'Schedule not found.'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)

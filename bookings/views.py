@@ -160,68 +160,88 @@ class CampaignBookingSchedulesView(ModelViewSet):
 def initiate_payment(request):
     print(request.data)
     user = request.user
-    record_id = request.data.get("record_id")
+    payment_id = request.data.get("payment_id")
+    cus_name = request.data.get("cus_name") or f"{user.first_name} {user.last_name}"
+    cus_address = request.data.get("cus_address") or getattr(user, "address", "")
+    cus_phone = request.data.get("cus_phone") or getattr(user, "contact_number", "")
+
     amount = request.data.get("amount")
-
-    if not record_id or not amount:
-        return Response({"error": "record_id and amount required"}, status=status.HTTP_400_BAD_REQUEST)
-
+    
     try:
-        record = VaccineRecord.objects.select_related('campaign').get(id=record_id, patient=user)
-    except VaccineRecord.DoesNotExist:
-        return Response({"error": "Booking not found"}, status=status.HTTP_404_NOT_FOUND)
+        payment = Payment.objects.get(id=payment_id, patient=user)
+    except Payment.DoesNotExist:
+        return Response({"error": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    payment = Payment.objects.create(
-        patient=user,
-        record=record,
-        amount=amount,
-        status=Payment.PENDING
-    )
-
+    
     print("user", user)
     settings = { 'store_id': config('Store_ID'), 'store_pass': config('store_pass'), 'issandbox': True }
     sslcz = SSLCOMMERZ(settings)
     post_body = {}
-    post_body['total_amount'] = str(payment.amount)
+    post_body['total_amount'] = amount
     post_body['currency'] = "BDT"
     post_body['tran_id'] = f"txn_{payment.id}"
     post_body['success_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/success/"
     post_body['fail_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/fail/"
     post_body['cancel_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/cancel/"
     post_body['emi_option'] = 0
-    post_body['cus_name'] = f"{user.first_name} {user.last_name}"
+    post_body['cus_name'] = cus_name
     post_body['cus_email'] = user.email
-    post_body['cus_phone'] = user.contact_number
-    post_body['cus_add1'] = user.address
+    post_body['cus_phone'] = cus_phone
+    post_body['cus_add1'] = cus_address
     post_body['cus_city'] = "Dhaka"
     post_body['cus_country'] = "Bangladesh"
     post_body['shipping_method'] = "NO"
     post_body['multi_card_name'] = ""
     post_body['num_of_item'] = 1
-    post_body['product_name'] = record.campaign.name
+    post_body['product_name'] = "Medical Product"
     post_body['product_category'] = "Vaccine"
     post_body['product_profile'] = "general"
 
     response = sslcz.createSession(post_body) # API response
-    if response.get("status") == 'SUCCESS':
-        return Response({"payment_url": response['GatewayPageURL'], "payment_id": payment.id})
-    return Response({"error": "Payment initatiation failed"}, status=status.HTTP_400_BAD_REQUEST)
+    if response.get("payment_status") == 'SUCCESS':
+        return Response({"payment_url": response['GatewayPageURL']})
+    return Response({"error": "Payment initatiation failed"}, payment_status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(["POST"])
 def payment_success(request):
     tran_id = request.data.get("tran_id")
     if not tran_id or not tran_id.startswith("txn_"):
         return Response({"error": "Invalid transaction id"}, status=400)
-    payment_id = tran_id.split('_')[1]
 
+    payment_id = tran_id.split('_')[1]
     try:
-        payment = Payment.objects.select_related('record').get(id=payment_id)
+        payment = Payment.objects.get(id=payment_id)
     except Payment.DoesNotExist:
         return Response({"error": "Payment not found"}, status=404)
 
-    payment.status = Payment.SUCCESS
+    if payment.payment_status == Payment.SUCCESS:
+        return Response({"detail": "Payment already completed"})
+
+    # Mark payment successful
+    payment.payment_status = Payment.SUCCESS
     payment.payment_reference = request.data.get("bank_tran_id")
     payment.save()
+
+    # Create VaccineRecord after payment
+    from campaigns.models import VaccineCampaign, VaccineSchedule
+    campaign = VaccineCampaign.objects.get(id=payment.campaign_id)
+    schedule = VaccineSchedule.objects.get(id=payment.schedule_id)
+
+    record = VaccineRecord.objects.create(
+        patient=payment.patient,
+        campaign=campaign,
+        first_dose_schedule=schedule,
+        status=VaccineRecord.SCHEDULED
+    )
+
+    # Link payment to the created record
+    payment.record = record
+    payment.save()
+
+    # Reduce slot count
+    schedule.available_slots = F('available_slots') - 1
+    schedule.save()
 
     return redirect(f"{main_settings.FRONTEND_URL}/campaigns")
 
@@ -235,5 +255,5 @@ def payment_fail(request):
     tran_id = request.data.get("tran_id")
     if tran_id and tran_id.startswith("txn_"):
         payment_id = tran_id.split('_')[1]
-        Payment.objects.filter(id=payment_id).update(status=Payment.FAILED)
+        Payment.objects.filter(id=payment_id).update(payment_status=Payment.FAILED)
     return redirect(f"{main_settings.FRONTEND_URL}/campaigns")

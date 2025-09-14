@@ -84,11 +84,16 @@ class Payment(models.Model):
     record = models.OneToOneField(
         'VaccineRecord',
         on_delete=models.CASCADE,
-        related_name='payment'
+        related_name='payment',
+        null=True,
+        blank=True
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     payment_status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
     payment_reference = models.CharField(max_length=255, blank=True, null=True)
 
+    campaign_id = models.IntegerField(null=True, blank=True)
+    schedule_id = models.IntegerField(null=True, blank=True)
+    
     def __str__(self):
         return f"Payment for {self.record} - {self.payment_status}"
