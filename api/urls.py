@@ -2,13 +2,14 @@ from django.urls import path,include
 from rest_framework_nested import routers
 from campaigns.views import VaccineCampaignViewSet,VaccineScheduleViewSet
 from bookings.views import VaccineBookingViewSet,CampaignReviewViewSet,initiate_payment,payment_success,payment_fail,payment_cancel
-from users.views import PatientProfileViewSet, DoctorProfileViewSet
+from users.views import PatientProfileViewSet, DoctorProfileViewSet,PublicDoctorViewSet
 
 router = routers.DefaultRouter()
 router.register('campaigns', VaccineCampaignViewSet, basename='campaign')
 router.register('bookings', VaccineBookingViewSet, basename='bookings')
 router.register('patient/profile', PatientProfileViewSet, basename='patient-profile')
 router.register('doctor/profile', DoctorProfileViewSet, basename='doctor-profile')
+router.register('doctors', PublicDoctorViewSet, basename='doctors')
 router.register('reviews', CampaignReviewViewSet, basename='reviews')
 
 campaign_router = routers.NestedDefaultRouter(router, 'campaigns', lookup='campaigns')
