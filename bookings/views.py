@@ -47,6 +47,14 @@ class VaccineBookingViewSet(ReadOnlyModelViewSet):
             qs = qs.filter(patient=user)
         return qs
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "count": queryset.count(),
+            "results": serializer.data
+        })
+    
     @action(detail=True, methods=['delete'], permission_classes=[IsAuthenticated, IsPatient])
     def delete(self, request, pk=None):
         record = self.get_object()
