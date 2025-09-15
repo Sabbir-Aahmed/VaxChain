@@ -40,10 +40,8 @@ class VaccineCampaignViewSet(ModelViewSet):
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
             return self.queryset.none()
-
         user = self.request.user
         qs = super().get_queryset()
-
         if getattr(user, 'role', None) == User.Role.DOCTOR:
             return qs.filter(created_by=user)
         elif getattr(user, 'role', None) == User.Role.PATIENT:

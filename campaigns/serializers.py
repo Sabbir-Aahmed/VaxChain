@@ -11,7 +11,7 @@ class VaccineScheduleSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Dynamically limit the campaign field if passed in context
+        
         campaign = self.context.get('campaign')
         if campaign:
             self.fields['campaign'].queryset = VaccineCampaign.objects.filter(pk=campaign.pk)

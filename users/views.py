@@ -6,7 +6,8 @@ from .permissions import IsPatient, IsDoctor
 from rest_framework.viewsets import ModelViewSet
 from .models import PatientProfile, DoctorProfile
 from drf_yasg.utils import swagger_auto_schema
-
+from rest_framework import viewsets
+from rest_framework.permissions import AllowAny
 
 class PatientProfileViewSet(ModelViewSet):
     serializer_class = PatientProfileSerializer

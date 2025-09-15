@@ -39,11 +39,14 @@ class VaccineBookingViewSet(ReadOnlyModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return VaccineRecord.objects.none()
         user = self.request.user
         qs = self.queryset
         if getattr(user, 'role', None) == 'PATIENT':
             qs = qs.filter(patient=user)
         return qs
+
     @action(detail=True, methods=['delete'], permission_classes=[IsAuthenticated, IsPatient])
     def delete(self, request, pk=None):
         record = self.get_object()
@@ -56,6 +59,8 @@ class CampaignReviewViewSet(ModelViewSet):
     permission_classes = [IsPatientOrReadOnly]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return CampaignReview.objects.none()
         queryset = super().get_queryset().select_related('patient', 'campaign')
         campaign_id = self.request.query_params.get('campaign_id')
         if campaign_id:
