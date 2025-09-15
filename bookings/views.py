@@ -4,7 +4,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import VaccineRecord, CampaignReview,Payment
-from .serializers import VaccineRecordSerializer, CampaignReviewSerializer
+from .serializers import VaccineRecordSerializer, CampaignReviewSerializer, PaymentInitiateSerializer
 from users.permissions import IsPatient, IsDoctor, IsPatientOrReadOnly
 from campaigns.models import VaccineSchedule, VaccineCampaign
 from rest_framework.decorators import action
@@ -159,21 +159,16 @@ class CampaignBookingSchedulesView(ModelViewSet):
 @api_view(['POST'])
 def initiate_payment(request):
     print(request.data)
-    user = request.user
-    payment_id = request.data.get("payment_id")
-    cus_name = request.data.get("cus_name") or f"{user.first_name} {user.last_name}"
-    cus_address = request.data.get("cus_address") or getattr(user, "address", "")
-    cus_phone = request.data.get("cus_phone") or getattr(user, "contact_number", "")
+    serializer = PaymentInitiateSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
 
-    amount = request.data.get("amount")
-    
-    try:
-        payment = Payment.objects.get(id=payment_id, patient=user)
-    except Payment.DoesNotExist:
-        return Response({"error": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
+    payment = serializer.validated_data['payment']
+    cus_name = serializer.validated_data.get('cus_name') or payment.patient.get_full_name()
+    cus_address = serializer.validated_data.get('cus_address') or getattr(payment.patient, "address", "")
+    cus_phone = serializer.validated_data.get('cus_phone') or getattr(payment.patient, "contact_number", "")
+    amount = serializer.validated_data['amount']
 
-    
-    print("user", user)
+
     settings = { 'store_id': config('Store_ID'), 'store_pass': config('store_pass'), 'issandbox': True }
     sslcz = SSLCOMMERZ(settings)
     post_body = {}
@@ -185,7 +180,7 @@ def initiate_payment(request):
     post_body['cancel_url'] = f"{main_settings.BACKEND_URL}/api/v1/payment/cancel/"
     post_body['emi_option'] = 0
     post_body['cus_name'] = cus_name
-    post_body['cus_email'] = user.email
+    post_body['cus_email'] = payment.patient.email,
     post_body['cus_phone'] = cus_phone
     post_body['cus_add1'] = cus_address
     post_body['cus_city'] = "Dhaka"
@@ -198,27 +193,16 @@ def initiate_payment(request):
     post_body['product_profile'] = "general"
 
     response = sslcz.createSession(post_body) # API response
-    if response.get("payment_status") == 'SUCCESS':
+    print("SSLCommerz response:", response)
+    if response.get("status") == 'SUCCESS':
         return Response({"payment_url": response['GatewayPageURL']})
-    return Response({"error": "Payment initatiation failed"}, payment_status=status.HTTP_400_BAD_REQUEST)
+    return Response({"error": "Payment initiation failed"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(["POST"])
 def payment_success(request):
-    tran_id = request.data.get("tran_id")
-    if not tran_id or not tran_id.startswith("txn_"):
-        return Response({"error": "Invalid transaction id"}, status=400)
-
-    payment_id = tran_id.split('_')[1]
-    try:
-        payment = Payment.objects.get(id=payment_id)
-    except Payment.DoesNotExist:
-        return Response({"error": "Payment not found"}, status=404)
-
-    if payment.payment_status == Payment.SUCCESS:
-        return Response({"detail": "Payment already completed"})
-
-    # Mark payment successful
+    payemnt_id = request.data.get("tran_id").split('_')[1]
+    payment = Payment.objects.get(id=payemnt_id)
     payment.payment_status = Payment.SUCCESS
     payment.payment_reference = request.data.get("bank_tran_id")
     payment.save()

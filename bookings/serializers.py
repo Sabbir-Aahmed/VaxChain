@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import VaccineRecord, CampaignReview
+from .models import VaccineRecord, CampaignReview, Payment
 from campaigns.models import VaccineSchedule, VaccineCampaign
 
 from django.utils import timezone
@@ -40,48 +40,6 @@ class VaccineRecordSerializer(serializers.ModelSerializer):
             }
         return None
 
-# class VaccineRecordCreateSerializer(serializers.ModelSerializer):
-#     campaign_id = serializers.PrimaryKeyRelatedField(
-#         queryset=VaccineCampaign.objects.filter(status=VaccineCampaign.ACTIVE),
-#         write_only=True,
-#         required=False  # Optional, can be inferred from schedule
-#     )
-#     first_dose_schedule_id = serializers.PrimaryKeyRelatedField(
-#         queryset=VaccineSchedule.objects.all(),
-#         write_only=True,
-#         source='first_dose_schedule'
-#     )
-
-#     class Meta:
-#         model = VaccineRecord
-#         fields = ['campaign_id', 'first_dose_schedule_id']
-
-#     def validate(self, attrs):
-#         request = self.context.get('request')
-#         campaign = attrs.get('campaign_id')
-#         schedule = attrs.get('first_dose_schedule')
-
-#         if not schedule:
-#             raise serializers.ValidationError("First dose schedule is required.")
-
-#         if schedule.date < timezone.now().date():
-#             raise serializers.ValidationError("Cannot book a date in the past.")
-#         if schedule.available_slots <= 0:
-#             raise serializers.ValidationError("No available slots for this schedule.")
-
-#         # If campaign not provided, infer from schedule
-#         if not campaign:
-#             if schedule.campaign.status != VaccineCampaign.ACTIVE:
-#                 raise serializers.ValidationError("Schedule's campaign must be active.")
-#             attrs['campaign_id'] = schedule.campaign
-#             campaign = schedule.campaign
-#         elif schedule.campaign != campaign:
-#             raise serializers.ValidationError("Selected schedule does not belong to the selected campaign.")
-
-#         if VaccineRecord.objects.filter(patient=request.user, campaign=campaign).exists():
-#             raise serializers.ValidationError("You already have a booking for this campaign.")
-
-#         return attrs
 
 class CampaignReviewSerializer(serializers.ModelSerializer):
     patient_name = serializers.SerializerMethodField(read_only=True)
@@ -118,3 +76,23 @@ class CampaignReviewSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data['patient'] = self.context['request'].user
         return super().create(validated_data)
+
+class PaymentInitiateSerializer(serializers.Serializer):
+    payment_id = serializers.IntegerField()
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    cus_name = serializers.CharField(required=False, allow_blank=True)
+    cus_address = serializers.CharField(required=False, allow_blank=True)
+    cus_phone = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        try:
+            payment = Payment.objects.get(id=attrs['payment_id'])
+        except Payment.DoesNotExist:
+            raise serializers.ValidationError("Payment not found.")
+
+        # optionally check amount matches
+        if str(payment.amount) != str(attrs['amount']):
+            raise serializers.ValidationError("Amount mismatch with payment record.")
+
+        attrs['payment'] = payment
+        return attrs

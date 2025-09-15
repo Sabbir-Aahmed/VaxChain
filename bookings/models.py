@@ -90,7 +90,6 @@ class Payment(models.Model):
     )
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     payment_status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
-    payment_reference = models.CharField(max_length=255, blank=True, null=True)
 
     campaign_id = models.IntegerField(null=True, blank=True)
     schedule_id = models.IntegerField(null=True, blank=True)
