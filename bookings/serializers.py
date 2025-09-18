@@ -17,7 +17,7 @@ class VaccineRecordSerializer(serializers.ModelSerializer):
         model = VaccineRecord
         fields = [
             'id', 'patient_name', 'campaign_name', 'campaign_start_date', 'campaign_end_date',
-            'first_dose_schedule', 'second_dose_schedule'
+            'first_dose_schedule', 'second_dose_schedule', "created_at", "updated_at",
         ]
 
     def get_first_dose_schedule(self, obj):
