@@ -210,11 +210,11 @@ def payment_success(request):
     schedule.available_slots = F('available_slots') - 1
     schedule.save()
 
-    return redirect(f"{main_settings.FRONTEND_URL}/campaigns")
+    return redirect(f"{main_settings.FRONTEND_URL}/dashboard/user")
 
 @api_view(['POST'])
 def payment_cancel(request):
-    return redirect(f"{main_settings.FRONTEND_URL}/campaigns")
+    return redirect(f"{main_settings.FRONTEND_URL}/dashboard/user")
 
 
 @api_view(['POST'])
@@ -223,4 +223,4 @@ def payment_fail(request):
     if tran_id and tran_id.startswith("txn_"):
         payment_id = tran_id.split('_')[1]
         Payment.objects.filter(id=payment_id).update(payment_status=Payment.FAILED)
-    return redirect(f"{main_settings.FRONTEND_URL}/campaigns")
+    return redirect(f"{main_settings.FRONTEND_URL}/dashboard/user")
