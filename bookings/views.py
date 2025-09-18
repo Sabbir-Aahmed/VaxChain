@@ -61,6 +61,8 @@ class VaccineBookingViewSet(ReadOnlyModelViewSet):
         record.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+from rest_framework.response import Response
+
 class CampaignReviewViewSet(ModelViewSet):
     queryset = CampaignReview.objects.all()
     serializer_class = CampaignReviewSerializer
@@ -80,11 +82,18 @@ class CampaignReviewViewSet(ModelViewSet):
 
     @swagger_auto_schema(
         operation_summary="List Campaign Reviews",
-        operation_description="Retrieve campaign reviews, optionally filtered by campaign_id",
-        responses={200: CampaignReviewSerializer(many=True)}
+        operation_description="Retrieve campaign reviews with total count, optionally filtered by campaign_id",
+        responses={200: '{"count": 10, "results": [...]}'}
     )
     def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
+        response = super().list(request, *args, **kwargs)
+        
+        queryset = self.filter_queryset(self.get_queryset())
+        response.data = {
+            'count': queryset.count(),
+            'results': response.data
+        }
+        return response
 
     @swagger_auto_schema(
         operation_summary="Retrieve a Campaign Review",
@@ -128,45 +137,6 @@ class CampaignReviewViewSet(ModelViewSet):
     )
     def destroy(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)
-
-class CampaignBookingSchedulesView(ModelViewSet):
-    """
-    Endpoint to list available first-dose schedules for a specific campaign during booking.
-    Only returns schedules for the given campaign with available slots and future dates.
-    """
-    permission_classes = [IsAuthenticated]
-    serializer_class = VaccineScheduleSerializer
-
-    def get_queryset(self):
-        campaign_id = self.kwargs.get('campaign_pk')  # Extract campaign ID from URL
-        try:
-            campaign = VaccineCampaign.objects.get(
-                id=campaign_id,
-                status=VaccineCampaign.ACTIVE
-            )
-        except VaccineCampaign.DoesNotExist:
-            return VaccineSchedule.objects.none()  # Return empty queryset if campaign invalid
-
-        # Only return schedules for this campaign, with slots > 0, future dates
-        return VaccineSchedule.objects.filter(
-            campaign=campaign,
-            available_slots__gt=0,
-            date__gte=timezone.now().date()
-        ).select_related('campaign').order_by('date', 'start_time')
-
-    @swagger_auto_schema(
-        operation_summary="List Available Schedules for Campaign Booking",
-        operation_description="Retrieve available first-dose schedules for a specific campaign (for booking UI). Only shows active campaigns with available slots and future dates.",
-        responses={200: VaccineScheduleSerializer(many=True), 404: 'Campaign not found or not active'}
-    )
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        if not queryset.exists():
-            return Response(
-                {'detail': 'No available schedules for this campaign or campaign is not active.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        return super().list(request, *args, **kwargs)
 
 
 @api_view(['POST'])
