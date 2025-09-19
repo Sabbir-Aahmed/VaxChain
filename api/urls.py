@@ -13,6 +13,7 @@ router.register('reviews', CampaignReviewViewSet, basename='reviews')
 
 campaign_router = routers.NestedDefaultRouter(router, 'campaigns', lookup='campaigns')
 campaign_router.register('schedule', VaccineScheduleViewSet, basename='schedule')
+campaign_router.register('reviews', CampaignReviewViewSet, basename='campaign-reviews')
 
 
 urlpatterns = [
