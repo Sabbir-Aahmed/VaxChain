@@ -58,8 +58,6 @@ class CampaignReview(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    class Meta:
-        unique_together = ('patient', 'campaign')
     
     def __str__(self):
         return f"Review by {self.patient.user.get_full_name()} for {self.campaign.name}"

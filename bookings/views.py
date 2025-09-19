@@ -17,7 +17,7 @@ from rest_framework.decorators import api_view
 from sslcommerz_lib import SSLCOMMERZ 
 from decouple import config
 from django.conf import settings as main_settings
-from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
 
 class VaccineBookingViewSet(ReadOnlyModelViewSet):
     """
@@ -61,24 +61,33 @@ class VaccineBookingViewSet(ReadOnlyModelViewSet):
         record.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-from rest_framework.response import Response
 
 class CampaignReviewViewSet(ModelViewSet):
-    queryset = CampaignReview.objects.all()
     serializer_class = CampaignReviewSerializer
     permission_classes = [IsPatientOrReadOnly]
 
     def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return CampaignReview.objects.none()
-        queryset = super().get_queryset().select_related('patient', 'campaign')
-        campaign_id = self.request.query_params.get('campaign_id')
-        if campaign_id:
-            queryset = queryset.filter(campaign_id=campaign_id)
+        queryset = CampaignReview.objects.select_related('patient', 'campaign')
+        campaign_pk = self.kwargs.get('campaigns_pk') 
+        if campaign_pk:
+            queryset = queryset.filter(campaign_id=campaign_pk)
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(patient=self.request.user)
+        campaign_pk = self.kwargs.get('campaigns_pk')
+        user = self.request.user
+
+        if campaign_pk:
+            if not VaccineRecord.objects.filter(patient=user, campaign_id=campaign_pk).exists():
+                raise ValidationError("You must book this vaccine to review it.")
+            serializer.save(patient=user, campaign_id=campaign_pk)
+        else:
+            campaign_id = self.request.data.get('campaign')
+            if not campaign_id:
+                raise ValidationError("campaign field is required.")
+            if not VaccineRecord.objects.filter(patient=user, campaign_id=campaign_id).exists():
+                raise ValidationError("You must book this vaccine to review it.")
+            serializer.save(patient=user, campaign_id=campaign_id)
 
     @swagger_auto_schema(
         operation_summary="List Campaign Reviews",
@@ -87,7 +96,6 @@ class CampaignReviewViewSet(ModelViewSet):
     )
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
-        
         queryset = self.filter_queryset(self.get_queryset())
         response.data = {
             'count': queryset.count(),

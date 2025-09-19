@@ -44,18 +44,11 @@ class VaccineRecordSerializer(serializers.ModelSerializer):
 class CampaignReviewSerializer(serializers.ModelSerializer):
     patient_name = serializers.SerializerMethodField(read_only=True)
     campaign_name = serializers.SerializerMethodField(read_only=True)
-    
-    campaign = serializers.PrimaryKeyRelatedField(
-        queryset=VaccineCampaign.objects.all(),
-        write_only=True
-    )
 
     class Meta:
         model = CampaignReview
-        fields = [
-            'id', 'patient_name', 'campaign_name', 'campaign',
-            'rating', 'comment', 'created_at', 'updated_at'
-        ]
+        fields = ['id', 'patient_name', 'campaign_name',
+                  'rating', 'comment', 'created_at', 'updated_at']
         read_only_fields = ['patient_name', 'campaign_name', 'created_at', 'updated_at']
 
     def get_patient_name(self, obj):
@@ -63,20 +56,8 @@ class CampaignReviewSerializer(serializers.ModelSerializer):
 
     def get_campaign_name(self, obj):
         return obj.campaign.name
-
-    def validate(self, data):
-        user = self.context['request'].user
-        campaign = data.get('campaign')
-
-        if not VaccineRecord.objects.filter(patient=user, campaign=campaign).exists():
-            raise serializers.ValidationError("You must book this vaccine to review it.")
-
-        return data
-
-    def create(self, validated_data):
-        validated_data['patient'] = self.context['request'].user
-        return super().create(validated_data)
-
+    
+    
 class PaymentInitiateSerializer(serializers.Serializer):
     payment_id = serializers.IntegerField()
     amount = serializers.DecimalField(max_digits=10, decimal_places=2)
